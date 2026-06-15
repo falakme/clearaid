@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000"
     admin_api_key: str = "clearaid_admin_dev_key"
 
+    # Max size (MB) for an uploaded document (PDF/image) before OCR.
+    max_upload_mb: int = 10
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]

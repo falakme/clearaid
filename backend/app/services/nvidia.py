@@ -38,6 +38,50 @@ RETRY_INSTRUCTION = (
     "object matching the schema exactly — no markdown, no code fences, no commentary."
 )
 
+# Shared JSON schema all document types must return so the UI renders uniformly.
+_SCHEMA = """Follow this exact JSON schema and output ONLY the raw JSON object (no markdown, no preamble):
+{
+  "bottom_line_summary": "A 1-sentence plain language summary of what this document means for the user.",
+  "deadline": "The exact deadline or due date extracted from the text, or null if none.",
+  "required_attachments": ["List of documents or line items the user needs to gather or cross-reference"],
+  "signature_locations": ["List of exactly where to sign, or [] if not applicable"],
+  "critical_warnings": ["Any major catch, risk, or overcharge the user should notice"],
+  "source_text_reference": "A 1-2 sentence direct quote from the original text that supports the deadline or a warning."
+}"""
+
+# Everyday bureaucracy (eviction, school, housing, general government letters).
+GENERAL_PROMPT = f"""You are a bureaucratic document translator. Your user is a stressed person dealing with everyday official paperwork (eviction notices, school communications, housing forms, government letters). 
+Read the text, skip the standard boilerplate, and produce a highly specific, actionable checklist. You ONLY clarify jargon, extract deadlines and required documents, and format an action checklist — you do NOT give legal, medical, or financial advice. When relevant, add a brief note in critical_warnings that this is not legal advice.
+
+{_SCHEMA}"""
+
+# Medical Bill Auditor — exact instruction from the product spec, plus schema mapping.
+MEDICAL_PROMPT = f"""You are a medical billing translation tool. Analyze the provided itemized receipt or document. Identify confusing billing codes, translate them to plain-language descriptions, list any typical price discrepancies or common overcharges, and output a structured JSON checklist showing the exact line items the user should cross-reference or ask their hospital provider to clarify. Include a strict disclaimer that you do not offer medical or legal advice.
+
+Map your analysis onto this schema:
+- bottom_line_summary: one plain-language sentence on what this bill is for.
+- deadline: the payment due date if stated, otherwise null.
+- required_attachments: the exact line items or billing codes the user should cross-reference or ask the provider to clarify.
+- signature_locations: [] (not applicable).
+- critical_warnings: likely overcharges or price discrepancies, AND the disclaimer "This is not medical or legal advice."
+- source_text_reference: a 1-2 sentence direct quote from the document.
+
+{_SCHEMA}"""
+
+# doc_type -> system prompt.
+_PROMPTS = {
+    "emergency": SYSTEM_PROMPT,
+    "medical_bill": MEDICAL_PROMPT,
+    "eviction": GENERAL_PROMPT,
+    "housing": GENERAL_PROMPT,
+    "school": GENERAL_PROMPT,
+    "general": GENERAL_PROMPT,
+}
+
+
+def _system_prompt(doc_type: str) -> str:
+    return _PROMPTS.get(doc_type, GENERAL_PROMPT)
+
 
 class NvidiaConfigError(RuntimeError):
     """Raised when the NVIDIA API key is not configured."""
@@ -170,12 +214,14 @@ async def _call_model(client: httpx.AsyncClient, messages: list[dict]) -> str:
         raise NvidiaUpstreamError("Unexpected response shape from NVIDIA API.") from exc
 
 
-async def translate_form(text: str) -> TranslateResponse:
+async def translate_form(text: str, doc_type: str = "general") -> TranslateResponse:
     """Call the NVIDIA model and return a structured checklist.
 
-    Retries once with a corrective instruction if the first reply is not
-    parseable JSON. Raises NvidiaUpstreamError (handled as HTTP 502) rather
-    than crashing if the model output cannot be parsed.
+    `doc_type` selects the system prompt (emergency relief, general
+    bureaucracy, or the medical bill auditor). Retries once with a corrective
+    instruction if the first reply is not parseable JSON. Raises
+    NvidiaUpstreamError (handled as HTTP 502) rather than crashing if the
+    model output cannot be parsed.
     """
     settings = get_settings()
 
@@ -185,7 +231,7 @@ async def translate_form(text: str) -> TranslateResponse:
         )
 
     messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": _system_prompt(doc_type)},
         {"role": "user", "content": text},
     ]
 

@@ -19,18 +19,19 @@ export default function LandingPage() {
       <Stagger className="flex flex-1 flex-col justify-center py-12">
         <Item>
           <p className="mb-3 text-lg font-semibold text-primary">
-            Calm, step-by-step crisis help
+            Paperwork, made plain
           </p>
         </Item>
         <Item>
           <h1 className="text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">
-            Let&apos;s get you prepared.
+            Confusing letter? We&apos;ll explain it.
           </h1>
         </Item>
         <Item>
           <p className="mt-5 max-w-xl text-xl text-muted-foreground">
-            ClearAid turns confusing government relief forms into a clear to-do list, so
-            you never miss aid or a deadline when it matters most.
+            ClearAid reads eviction notices, school letters, housing forms, medical bills,
+            and disaster relief paperwork — and turns them into a clear, plain-language
+            checklist. Upload a PDF, snap a photo, or paste the text.
           </p>
         </Item>
 

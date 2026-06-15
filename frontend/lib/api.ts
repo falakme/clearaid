@@ -43,15 +43,28 @@ export async function fetchHealth(): Promise<Health> {
   return res.json();
 }
 
+/** Input for a translation request: pasted text and/or an uploaded file. */
+export interface TranslateInput {
+  text?: string;
+  file?: File | null;
+  docType?: string;
+}
+
 /**
- * Core Crisis-to-Action call. Sends raw legal text; receives a structured,
- * plain-language checklist. Never submits anything on the user's behalf.
+ * Core call. Sends pasted text and/or an uploaded document (PDF/image) as
+ * multipart form data; receives a structured, plain-language checklist.
+ * Never submits anything on the user's behalf.
  */
-export async function translateForm(text: string): Promise<TranslateResult> {
+export async function translateForm(input: TranslateInput): Promise<TranslateResult> {
+  const form = new FormData();
+  if (input.text) form.append("text", input.text);
+  form.append("doc_type", input.docType ?? "general");
+  if (input.file) form.append("file", input.file);
+
+  // Note: do NOT set Content-Type — the browser sets the multipart boundary.
   const res = await fetch(`${API_BASE_URL}/api/translate-form`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text }),
+    body: form,
   });
   if (!res.ok) throw new ApiError(await parseError(res), res.status);
   return res.json();

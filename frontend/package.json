@@ -10,9 +10,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "next": "14.2.18",
+    "next": "14.2.35",
     "react": "18.3.1",
     "react-dom": "18.3.1",
+    "@clerk/nextjs": "^6.9.0",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "framer-motion": "11.11.17",
@@ -29,6 +30,6 @@
     "autoprefixer": "10.4.20",
     "tailwindcss-animate": "1.0.7",
     "eslint": "8.57.1",
-    "eslint-config-next": "14.2.18"
+    "eslint-config-next": "14.2.35"
   }
 }

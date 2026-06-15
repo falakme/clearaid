@@ -26,7 +26,7 @@ export default function AdminTranslateTester() {
     setMs(null);
     const started = performance.now();
     try {
-      const res = await translateForm(text);
+      const res = await translateForm({ text });
       setResult(res);
       setMs(Math.round(performance.now() - started));
     } catch (e) {

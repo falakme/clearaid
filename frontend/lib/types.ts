@@ -19,7 +19,16 @@ export interface Alert {
   created_at: string;
 }
 
-/** A mock relief program shown on the dashboard to-do list. */
+/** Document type that selects the backend AI prompt. */
+export type DocType =
+  | "emergency"
+  | "eviction"
+  | "medical_bill"
+  | "school"
+  | "housing"
+  | "general";
+
+/** A document-translation module shown on the dashboard. */
 export interface ReliefProgram {
   id: string;
   title: string;
@@ -28,6 +37,12 @@ export interface ReliefProgram {
   /** Pre-filled sample form text used to demo the translator. */
   sampleFormText: string;
   officialUrl: string;
+  /** Selects the backend system prompt. */
+  docType: DocType;
+  /** Requires Clerk sign-in when there is NO active emergency. */
+  gated: boolean;
+  /** Grouping label shown on the dashboard. */
+  category: "Emergency" | "Housing & Legal" | "Medical" | "School" | "Government";
 }
 
 /** Structured output returned by POST /api/translate-form. */

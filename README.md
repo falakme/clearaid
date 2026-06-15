@@ -1,10 +1,13 @@
 # ClearAid
 
-**Proactive crisis navigation and bureaucratic translation for displaced families.**
+**Paperwork, made plain — from disaster relief to everyday bureaucracy.**
 
-ClearAid is a Crisis-to-Action Translator (USAII Global AI Hackathon — High School Track,
-Direction A). It turns dense government relief paperwork (FEMA housing forms, NGO aid
-terms) into a calm, actionable checklist for exhausted, displaced parents.
+ClearAid (USAII Global AI Hackathon — High School Track) turns dense, confusing
+documents — **eviction notices, school communications, housing forms, medical bills,
+and disaster relief paperwork** — into a calm, plain-language checklist. Users upload a
+PDF, snap a photo, or paste text; ClearAid extracts the text (OCR for images), clarifies
+the jargon, and formats the next steps. It **audits and clarifies only** — never giving
+medical or legal advice, and never submitting anything on the user's behalf.
 
 ---
 
@@ -14,22 +17,49 @@ terms) into a calm, actionable checklist for exhausted, displaced parents.
 ┌──────────────────────┐      ┌───────────────────────┐      ┌──────────────┐
 │  Next.js 14 PWA      │ HTTP │  FastAPI backend       │      │  PostgreSQL  │
 │  (browser)           │─────▶│  /api/translate-form   │      │  (NON-PII    │
-│  - LocalStorage only │      │  /api/alerts           │─────▶│   alerts     │
-│    for user profile  │      │  /api/health           │      │   only)      │
+│  - LocalStorage only │ file │   (text / PDF / image) │      │   alerts     │
+│  - optional Clerk    │ +OCR │  /api/alerts /health   │─────▶│   only)      │
 └──────────────────────┘      └───────────┬────────────┘      └──────────────┘
-                                          │
+                                          │ pypdf / pytesseract → raw text
                                           ▼
                             NVIDIA Build API
                             google/gemma-3n-e4b-it
 ```
 
+## Document modules
+
+| Module | Doc type | Access |
+| ------ | -------- | ------ |
+| Emergency Housing / Red Cross / Utility relief | `emergency` | Always anonymous |
+| Eviction Notice Translator | `eviction` | Gated* |
+| Medical Bill Auditor | `medical_bill` | Gated* |
+| School Communication | `school` | Gated* |
+| Housing Form Helper | `housing` | Gated* |
+
+\*Gated modules require a quick Clerk sign-in **unless an active emergency is present**
+for the user's area (then they're anonymous, to remove friction in a crisis).
+
+## Multimodal intake
+
+The Translator accepts a **PDF**, an **image (PNG/JPG)**, a **camera photo** (mobile), or
+pasted text. The backend extracts text with `pypdf` (PDFs) or `pytesseract` OCR (images)
+before sending it to the model. Extracted text is held in memory only — never stored.
+
+## Conditional authentication (Clerk)
+
+- **Active emergency** in the user's area → emergency tools open instantly, no login.
+- **No emergency** → high-compute modules (Medical Bill Auditor, Eviction Translator,
+  etc.) ask for a quick Clerk sign-in as a guardrail against API abuse.
+- Clerk is **optional**: with no keys set, the app runs with gating disabled (demo mode).
+
 ## Responsible AI safeguards
 
 1. **Zero PII backend storage** — ZIP, city, and family size live ONLY in the browser's
    `localStorage`. Postgres stores nothing but mocked, non-personal disaster alerts.
-2. **Human-in-the-loop** — ClearAid translates forms into a to-do list but never
-   auto-submits. The user gathers their own documents and clicks through to the
-   official government portal themselves.
+   Uploaded documents are converted to text in memory and never persisted.
+2. **Human-in-the-loop** — ClearAid translates documents into a to-do list but never
+   auto-submits. It clarifies jargon and formats checklists; it does **not** give medical
+   or legal advice (the Medical Bill Auditor carries an explicit disclaimer).
 3. **Source transparency** — Every translation includes a "Show Legal Source" toggle
    exposing the exact quote the AI used, guarding against hallucinated deadlines.
 
@@ -37,8 +67,8 @@ terms) into a calm, actionable checklist for exhausted, displaced parents.
 
 | Layer    | Technology                                                       |
 | -------- | ---------------------------------------------------------------- |
-| Frontend | Next.js 14 (App Router), TypeScript, Tailwind, shadcn-style UI, PWA |
-| Backend  | Python, FastAPI, Pydantic, SQLAlchemy                            |
+| Frontend | Next.js 14 (App Router), TypeScript, Tailwind, shadcn-style UI, PWA, Clerk |
+| Backend  | Python, FastAPI, Pydantic, SQLAlchemy, pypdf, pytesseract        |
 | Database | PostgreSQL (non-PII alerts)                                      |
 | AI       | NVIDIA Build API — `google/gemma-3n-e4b-it`                      |
 | Infra    | Docker Compose (Coolify-compatible)                             |
