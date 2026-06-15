@@ -51,8 +51,8 @@ export default function LandingPage() {
 
 function Feature({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
   return (
-    <div className="glass-card p-5">
-      <span className="flex h-11 w-11 items-center justify-center rounded-md bg-primary/10 text-primary">
+    <div className="clay-card p-5">
+      <span className="flex h-12 w-12 items-center justify-center rounded-md bg-primary/10 text-primary shadow-clay-sm">
         {icon}
       </span>
       <h3 className="mt-3 text-lg font-bold">{title}</h3>

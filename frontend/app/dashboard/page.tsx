@@ -65,7 +65,7 @@ export default function DashboardPage() {
             <Link
               key={p.id}
               href={`/translate/${p.id}`}
-              className="glass-card group flex min-h-tap flex-col p-5 transition-shadow hover:shadow-glass-lg"
+              className="clay-card group flex min-h-tap flex-col p-5 transition-all hover:-translate-y-1 hover:shadow-clay-lg"
             >
               <div className="mb-2 flex items-center justify-between">
                 <Badge variant="info">{p.agency}</Badge>

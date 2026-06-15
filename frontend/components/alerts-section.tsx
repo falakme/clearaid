@@ -51,20 +51,20 @@ export function AlertsSection({ zipCode }: { zipCode: string }) {
       </div>
 
       {status === "loading" && alerts.length === 0 && (
-        <div className="glass-card p-5">
+        <div className="clay-card p-5">
           <div className="skeleton mb-3 h-5 w-2/3" />
           <div className="skeleton h-4 w-full" />
         </div>
       )}
 
       {status === "error" && (
-        <div className="glass-card p-5 text-muted-foreground">
+        <div className="clay-card p-5 text-muted-foreground">
           We couldn&apos;t reach the alert service right now. We&apos;ll keep trying.
         </div>
       )}
 
       {status !== "loading" && status !== "error" && alerts.length === 0 && (
-        <div className="glass-card flex items-center gap-3 p-5">
+        <div className="clay-card flex items-center gap-3 p-5">
           <CheckCircle2 className="h-6 w-6 text-emerald-600" />
           <p className="text-lg">
             No active alerts for ZIP {zipCode}. You&apos;re all caught up.
@@ -76,7 +76,7 @@ export function AlertsSection({ zipCode }: { zipCode: string }) {
         {alerts.map((a) => {
           const Icon = ICON[a.severity] ?? Info;
           return (
-            <li key={a.id} className="glass-card flex items-start gap-4 p-5">
+            <li key={a.id} className="clay-card flex items-start gap-4 p-5">
               <span className="mt-0.5 text-primary">
                 <Icon className="h-6 w-6" />
               </span>

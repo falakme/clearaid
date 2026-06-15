@@ -167,7 +167,7 @@ export default function MockAlertsPage() {
         )}
         <ul className="space-y-3">
           {alerts.map((a) => (
-            <li key={a.id} className="glass-card flex items-start gap-4 p-4">
+            <li key={a.id} className="clay-card flex items-start gap-4 p-4">
               <div className="flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="font-bold">{a.title}</h3>

@@ -18,8 +18,8 @@ export function Checkbox({ checked, onCheckedChange, id, label, className }: Che
     <label
       htmlFor={id}
       className={cn(
-        "flex min-h-tap cursor-pointer items-center gap-4 rounded-md border-2 border-transparent bg-white/50 p-3 transition-colors hover:bg-white",
-        checked && "border-primary/30 bg-primary/5",
+        "flex min-h-tap cursor-pointer items-center gap-4 rounded-md border border-white/70 bg-card p-3 shadow-clay-sm transition-all hover:brightness-[1.02] active:translate-y-0.5",
+        checked && "bg-primary/5",
         className,
       )}
     >
@@ -30,8 +30,10 @@ export function Checkbox({ checked, onCheckedChange, id, label, className }: Che
         aria-checked={checked}
         onClick={() => onCheckedChange(!checked)}
         className={cn(
-          "flex h-8 w-8 shrink-0 items-center justify-center rounded-md border-2 transition-colors",
-          checked ? "border-primary bg-primary text-white" : "border-muted-foreground/40 bg-white",
+          "flex h-9 w-9 shrink-0 items-center justify-center rounded-[0.7rem] transition-all",
+          checked
+            ? "bg-primary text-white shadow-clay-primary"
+            : "bg-card text-transparent shadow-clay-inset",
         )}
       >
         {checked && <Check className="h-5 w-5" strokeWidth={3} />}
