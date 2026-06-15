@@ -33,7 +33,9 @@ export function TranslatorView({ program }: { program: ReliefProgram }) {
         e instanceof ApiError
           ? e.status === 503
             ? "The AI service isn't configured yet. Add an NVIDIA_API_KEY to the backend."
-            : `Translation failed (${e.status}). Please try again.`
+            : e.status === 502
+              ? "ClearAid had trouble reading that document. Please try again."
+              : `Translation failed (${e.status}). Please try again.`
           : "Something went wrong reaching the translator.";
       setError(msg);
       setPhase("error");

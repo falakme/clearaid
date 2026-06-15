@@ -2,8 +2,9 @@
 
 Sends raw government form text to `google/gemma-3n-e4b-it` and parses a
 strict JSON checklist back out. The system prompt forbids markdown and
-preamble, but we still defensively extract the JSON object in case the
-model wraps it.
+preamble, but models are unreliable, so we defensively extract and repair
+the JSON, retry once with a corrective nudge, and always fail gracefully
+(never with an unhandled 500).
 """
 
 from __future__ import annotations
@@ -32,6 +33,11 @@ Follow this exact JSON schema:
   "source_text_reference": "A 1-2 sentence direct quote from the original text that proves the deadline or warning."
 }"""
 
+RETRY_INSTRUCTION = (
+    "Your previous reply was not valid JSON. Reply again with ONLY the raw JSON "
+    "object matching the schema exactly — no markdown, no code fences, no commentary."
+)
+
 
 class NvidiaConfigError(RuntimeError):
     """Raised when the NVIDIA API key is not configured."""
@@ -41,28 +47,66 @@ class NvidiaUpstreamError(RuntimeError):
     """Raised when the NVIDIA API returns an error or unparsable output."""
 
 
-def _extract_json(content: str) -> dict:
-    """Best-effort extraction of a JSON object from the model output."""
-    content = content.strip()
+def _first_json_object(s: str) -> str | None:
+    """Return the first balanced {...} block, ignoring braces inside strings."""
+    start = s.find("{")
+    if start == -1:
+        return None
+    depth = 0
+    in_str = False
+    esc = False
+    for i in range(start, len(s)):
+        ch = s[i]
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+        elif ch == '"':
+            in_str = True
+        elif ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                return s[start : i + 1]
+    return None  # unbalanced (likely truncated output)
+
+
+def _try_parse(content: str) -> dict | None:
+    """Best-effort parse of a JSON object from raw model output.
+
+    Tries the whole string, a fenced block, and the first balanced object,
+    each with a trailing-comma repair pass. Returns None if nothing parses.
+    """
+    if not content:
+        return None
+
+    text = content.strip()
 
     # Strip ```json ... ``` fences if the model ignored instructions.
-    fence = re.match(r"^```(?:json)?\s*(.*?)\s*```$", content, re.DOTALL)
+    fence = re.match(r"^```(?:json)?\s*(.*?)\s*```$", text, re.DOTALL)
     if fence:
-        content = fence.group(1).strip()
+        text = fence.group(1).strip()
 
-    try:
-        return json.loads(content)
-    except json.JSONDecodeError:
-        pass
+    candidates = [text]
+    block = _first_json_object(text)
+    if block and block != text:
+        candidates.append(block)
 
-    # Fall back to the first balanced {...} block.
-    start = content.find("{")
-    end = content.rfind("}")
-    if start != -1 and end != -1 and end > start:
-        snippet = content[start : end + 1]
-        return json.loads(snippet)
-
-    raise NvidiaUpstreamError("Model did not return valid JSON.")
+    for candidate in candidates:
+        # Try as-is, then with trailing commas removed (a common LLM slip).
+        repaired = re.sub(r",(\s*[}\]])", r"\1", candidate)
+        for variant in (candidate, repaired):
+            try:
+                parsed = json.loads(variant)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(parsed, dict):
+                return parsed
+    return None
 
 
 def _normalize(data: dict) -> TranslateResponse:
@@ -90,38 +134,27 @@ def _normalize(data: dict) -> TranslateResponse:
     )
 
 
-async def translate_form(text: str) -> TranslateResponse:
-    """Call the NVIDIA model and return a structured checklist."""
+async def _call_model(client: httpx.AsyncClient, messages: list[dict]) -> str:
+    """POST a chat completion and return the assistant message content."""
     settings = get_settings()
-
-    if not settings.nvidia_api_key:
-        raise NvidiaConfigError(
-            "NVIDIA_API_KEY is not set. Add it to the backend environment."
-        )
-
     payload = {
         "model": settings.nvidia_model,
-        "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": text},
-        ],
+        "messages": messages,
         "temperature": 0.2,
         "top_p": 0.7,
-        "max_tokens": 1024,
+        # Generous budget so the JSON object is never truncated mid-object.
+        "max_tokens": 2048,
         "stream": False,
     }
-
     headers = {
         "Authorization": f"Bearer {settings.nvidia_api_key}",
         "Accept": "application/json",
         "Content-Type": "application/json",
     }
-
     url = f"{settings.nvidia_base_url.rstrip('/')}/chat/completions"
 
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            resp = await client.post(url, json=payload, headers=headers)
+        resp = await client.post(url, json=payload, headers=headers)
     except httpx.HTTPError as exc:  # network-level failure
         raise NvidiaUpstreamError(f"Could not reach NVIDIA API: {exc}") from exc
 
@@ -132,9 +165,46 @@ async def translate_form(text: str) -> TranslateResponse:
 
     body = resp.json()
     try:
-        content = body["choices"][0]["message"]["content"]
+        return body["choices"][0]["message"]["content"]
     except (KeyError, IndexError, TypeError) as exc:
         raise NvidiaUpstreamError("Unexpected response shape from NVIDIA API.") from exc
 
-    data = _extract_json(content)
+
+async def translate_form(text: str) -> TranslateResponse:
+    """Call the NVIDIA model and return a structured checklist.
+
+    Retries once with a corrective instruction if the first reply is not
+    parseable JSON. Raises NvidiaUpstreamError (handled as HTTP 502) rather
+    than crashing if the model output cannot be parsed.
+    """
+    settings = get_settings()
+
+    if not settings.nvidia_api_key:
+        raise NvidiaConfigError(
+            "NVIDIA_API_KEY is not set. Add it to the backend environment."
+        )
+
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": text},
+    ]
+
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        content = await _call_model(client, messages)
+        data = _try_parse(content)
+
+        if data is None:
+            # One corrective retry — show the model its bad output and insist.
+            retry_messages = messages + [
+                {"role": "assistant", "content": content[:2000]},
+                {"role": "user", "content": RETRY_INSTRUCTION},
+            ]
+            content = await _call_model(client, retry_messages)
+            data = _try_parse(content)
+
+    if data is None:
+        raise NvidiaUpstreamError(
+            "The AI returned malformed output. Please try again."
+        )
+
     return _normalize(data)
