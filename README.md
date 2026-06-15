@@ -59,17 +59,13 @@ docker compose up --build
 
 ### Running services individually (dev)
 
-Backend (**requires Python 3.10+** — the code uses PEP 604 `X | None` unions;
-this matches the Python 3.12 Docker image):
+Backend (works on **Python 3.9+**):
 ```bash
 cd backend
-python3.12 -m venv .venv && source .venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
-
-> If `python --version` reports 3.9 or lower, use an explicit `python3.10`/
-> `python3.11`/`python3.12` when creating the venv, or just use Docker above.
 
 Frontend:
 ```bash

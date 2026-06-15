@@ -4,6 +4,8 @@ Public read endpoint for the dashboard + admin-protected write endpoints
 for the hackathon demo control panel. All data here is non-PII.
 """
 
+from typing import Optional
+
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -16,7 +18,7 @@ from app.schemas import AlertCreate, AlertOut
 router = APIRouter(tags=["alerts"])
 
 
-def require_admin(x_admin_key: str | None = Header(default=None)) -> None:
+def require_admin(x_admin_key: Optional[str] = Header(default=None)) -> None:
     """Guard admin write endpoints with a shared key."""
     settings = get_settings()
     if not x_admin_key or x_admin_key != settings.admin_api_key:
@@ -25,7 +27,7 @@ def require_admin(x_admin_key: str | None = Header(default=None)) -> None:
 
 @router.get("/api/alerts", response_model=list[AlertOut])
 def list_alerts(
-    zip_code: str | None = Query(default=None, description="Filter by ZIP code."),
+    zip_code: Optional[str] = Query(default=None, description="Filter by ZIP code."),
     include_inactive: bool = Query(default=False),
     db: Session = Depends(get_db),
 ) -> list[Alert]:

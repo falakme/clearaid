@@ -1,6 +1,7 @@
 """Pydantic schemas for request/response validation."""
 
 from datetime import datetime
+from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -33,7 +34,7 @@ class TranslateRequest(BaseModel):
         min_length=1,
         description="Raw text of a government relief form or terms & conditions.",
     )
-    source_label: str | None = Field(
+    source_label: Optional[str] = Field(
         default=None,
         description="Optional label of where the text came from (e.g. program name).",
     )
@@ -46,7 +47,7 @@ class TranslateResponse(BaseModel):
     """
 
     bottom_line_summary: str
-    deadline: str | None = None
+    deadline: Optional[str] = None
     required_attachments: list[str] = Field(default_factory=list)
     signature_locations: list[str] = Field(default_factory=list)
     critical_warnings: list[str] = Field(default_factory=list)
