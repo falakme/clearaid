@@ -13,8 +13,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    # Database (non-PII alerts only)
-    database_url: str = "postgresql+psycopg://clearaid:clearaid_dev_pw@db:5432/clearaid"
+    # Database (non-PII alerts only).
+    # Defaults to localhost for local `uvicorn` runs; docker-compose overrides
+    # this with the `db` service hostname via the DATABASE_URL env var.
+    database_url: str = (
+        "postgresql+psycopg://clearaid:clearaid_dev_pw@localhost:5432/clearaid"
+    )
 
     # NVIDIA Build API
     nvidia_api_key: str = ""

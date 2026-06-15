@@ -1,5 +1,6 @@
 """ClearAid FastAPI application entrypoint."""
 
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -11,15 +12,25 @@ from app.database import Base, engine
 from app.routers import alerts, health, translate
 from app.seed import seed
 
+logger = logging.getLogger("clearaid")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Create tables and seed non-PII demo alerts on startup.
-    Base.metadata.create_all(bind=engine)
+    # Never block startup if the DB is unreachable — the core /api/translate-form
+    # endpoint does not need a database, so the API should still come up.
     try:
+        Base.metadata.create_all(bind=engine)
         seed()
-    except Exception:  # noqa: BLE001 - never block startup on seed failure
-        pass
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "Could not reach the database at startup (%s). The API will still "
+            "start, but alert endpoints will fail until Postgres is available. "
+            "Tip: run `docker compose up db` or point DATABASE_URL at a running "
+            "Postgres instance.",
+            exc.__class__.__name__,
+        )
     yield
 
 
