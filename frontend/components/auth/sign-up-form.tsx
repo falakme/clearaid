@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSignUp } from "@clerk/nextjs";
-import { ArrowRight, KeyRound, Loader2, Lock, Mail, User } from "lucide-react";
+import { ArrowRight, KeyRound, Loader2, Mail, User } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { ThemeMode } from "@/components/theme";
 import { Button } from "@/components/ui/button";
@@ -14,8 +14,10 @@ import { clerkErrorMessage, useRedirectTarget } from "./auth-utils";
 
 /**
  * Custom, claymorphism-styled sign-up built on Clerk's headless useSignUp.
- * Two steps: (1) create the account (email + password), (2) verify the email
- * with the code Clerk emails. Replaces Clerk's hosted <SignUp /> component.
+ *
+ * PASSWORDLESS: email + one-time verification code ONLY. No passwords, no
+ * passkeys. Two steps: (1) enter email, (2) verify the 6-digit code Clerk
+ * emails.
  */
 export function SignUpForm() {
   const router = useRouter();
@@ -24,7 +26,6 @@ export function SignUpForm() {
 
   const [firstName, setFirstName] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -38,7 +39,6 @@ export function SignUpForm() {
     try {
       await signUp.create({
         emailAddress: email,
-        password,
         ...(firstName ? { firstName } : {}),
       });
       await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
@@ -82,7 +82,7 @@ export function SignUpForm() {
           <>
             <h1 className="text-3xl font-extrabold tracking-tight">Create your account</h1>
             <p className="mt-2 text-base text-muted-foreground">
-              Save your paperwork and pick up right where you left off.
+              Just your email — we&apos;ll send a code to verify it. No password needed.
             </p>
 
             <form onSubmit={onCreate} className="mt-6 space-y-4">
@@ -105,16 +105,6 @@ export function SignUpForm() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
               />
-              <Field
-                label="Password"
-                icon={<Lock className="h-5 w-5" />}
-                type="password"
-                autoComplete="new-password"
-                placeholder="Create a password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
 
               {error && (
                 <p className="rounded-md bg-warning/15 p-3 text-base text-amber-800">
@@ -133,11 +123,11 @@ export function SignUpForm() {
               >
                 {loading ? (
                   <>
-                    <Loader2 className="h-5 w-5 animate-spin" /> Creating account…
+                    <Loader2 className="h-5 w-5 animate-spin" /> Sending code…
                   </>
                 ) : (
                   <>
-                    Create account <ArrowRight className="h-5 w-5" />
+                    Email me a code <ArrowRight className="h-5 w-5" />
                   </>
                 )}
               </Button>
