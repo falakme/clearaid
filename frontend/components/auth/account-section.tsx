@@ -53,7 +53,7 @@ export function AccountSection() {
         <p className="mt-1 text-base text-muted-foreground">
           You&apos;re not signed in. Sign in to sync your everyday paperwork.
         </p>
-        <Button className="mt-4" onClick={() => router.push("/sign-in")}>
+        <Button className="mt-4" onClick={() => router.push("/signin")}>
           <LogIn className="h-5 w-5" /> Sign in
         </Button>
       </SignedOut>
