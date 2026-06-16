@@ -10,8 +10,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
   if (!CLERK_ENABLED) return <>{children}</>;
   return (
     <ClerkProvider
-      signInUrl="/sign-in"
-      signUpUrl="/sign-up"
+      signInUrl="/signin"
+      signUpUrl="/signup"
       signInFallbackRedirectUrl="/dashboard"
       signUpFallbackRedirectUrl="/dashboard"
     >

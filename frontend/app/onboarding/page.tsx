@@ -53,7 +53,7 @@ export default function OnboardingPage() {
       router.replace("/emergency");
     } else if (CLERK_ENABLED) {
       // Scenario B — everyday use: sign in, then land on the dashboard.
-      router.replace("/sign-in");
+      router.replace("/signin");
     } else {
       // Clerk not configured (demo) — go straight to the dashboard.
       router.replace("/dashboard");
@@ -144,7 +144,7 @@ export default function OnboardingPage() {
                     size="lg"
                     className="mt-3 w-full"
                     onClick={() =>
-                      CLERK_ENABLED ? router.replace("/sign-in") : router.replace("/dashboard")
+                      CLERK_ENABLED ? router.replace("/signin") : router.replace("/dashboard")
                     }
                   >
                     Continue without location
