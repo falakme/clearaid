@@ -8,7 +8,9 @@ RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
 FROM node:22-alpine AS builder
 WORKDIR /app
 # Public env baked into the browser bundle at build time.
-ARG NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+# Empty by default => the browser calls the frontend's own origin (/api/*),
+# which proxies to the backend internally (no CORS / mixed content needed).
+ARG NEXT_PUBLIC_API_BASE_URL=
 ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
 # Optional Clerk auth — leave empty to run with auth disabled.
 ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=

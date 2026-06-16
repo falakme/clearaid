@@ -1,11 +1,19 @@
 import type { Alert, Health, TranslateResult } from "./types";
 
 /**
- * Public base URL the browser uses to reach the FastAPI backend.
- * Baked in at build time via NEXT_PUBLIC_API_BASE_URL.
+ * Base URL the browser uses to reach the API.
+ *
+ * Defaults to "" (EMPTY) so calls go to the frontend's OWN origin
+ * (`/api/...`), where Next.js route handlers proxy to the backend over the
+ * internal network. This is the recommended setup for Coolify / any reverse
+ * proxy: no CORS, no HTTPS->HTTP mixed content, and no public backend URL
+ * baked into the bundle.
+ *
+ * Set NEXT_PUBLIC_API_BASE_URL to a full absolute URL (e.g.
+ * https://backend.example.com) ONLY if you intentionally want the browser to
+ * call the backend directly (you must then also configure CORS).
  */
-export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
 export class ApiError extends Error {
   constructor(
@@ -28,11 +36,16 @@ async function parseError(res: Response): Promise<string> {
 
 /** Fetch active disaster alerts, optionally scoped to a city or ZIP. */
 export async function fetchAlerts(opts?: { city?: string; zipCode?: string }): Promise<Alert[]> {
-  const url = new URL(`${API_BASE_URL}/api/alerts`);
-  if (opts?.city) url.searchParams.set("city", opts.city);
-  if (opts?.zipCode) url.searchParams.set("zip_code", opts.zipCode);
+  // Build the query string manually so this works with a relative
+  // (same-origin) base URL as well as an absolute one.
+  const params = new URLSearchParams();
+  if (opts?.city) params.set("city", opts.city);
+  if (opts?.zipCode) params.set("zip_code", opts.zipCode);
+  const qs = params.toString();
 
-  const res = await fetch(url.toString(), { cache: "no-store" });
+  const res = await fetch(`${API_BASE_URL}/api/alerts${qs ? `?${qs}` : ""}`, {
+    cache: "no-store",
+  });
   if (!res.ok) throw new ApiError(await parseError(res), res.status);
   return res.json();
 }
