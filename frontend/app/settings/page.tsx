@@ -8,6 +8,7 @@ import { Brand } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { AccountSection } from "@/components/auth/account-section";
+import { DataPurgeButton } from "@/components/data-purge-button";
 import { useProfile } from "@/lib/storage";
 import { CLERK_ENABLED } from "@/lib/auth";
 
@@ -69,6 +70,10 @@ export default function SettingsPage() {
           <Trash2 className="h-5 w-5" /> Clear all local data
         </Button>
       </Card>
+
+      <footer className="mt-8 flex justify-center">
+        <DataPurgeButton />
+      </footer>
     </main>
   );
 }

@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Paperclip, Wand2 } from "lucide-react";
+import { Baby, FlaskConical, Languages, Mic, MicOff, Paperclip, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { phaseFade } from "@/lib/motion";
 import { translateForm, ApiError } from "@/lib/api";
+import { LANGUAGES } from "@/lib/languages";
+import { TEST_MODE, DEMO_DOCS } from "@/lib/test-mode";
 import type { TranslateResult } from "@/lib/types";
 import { FileIntake } from "./file-intake";
 import { TranslatorResult } from "./translator-result";
@@ -16,31 +18,21 @@ import { TranslatorSkeleton } from "./translator-skeleton";
 type Phase = "input" | "loading" | "result" | "error";
 
 interface Props {
-  /** Selects the backend prompt: "emergency" or "general". */
   docType: "emergency" | "general";
-  /** Stable key for persisting checklist progress per surface. */
   storageKey: string;
-  /** Headline prompt. */
   title?: string;
-  /** Sub-headline beneath the prompt. */
   subtitle?: string;
-  /** Tailwind accent applied to the prompt heading. */
   accentClassName?: string;
 }
 
 /**
- * Single, unified document-intake surface used by BOTH the emergency intake
- * (`/emergency`) and the everyday dashboard (`/dashboard`). Replaces the old
- * per-program preset cards.
+ * Unified document-intake surface for /emergency and /dashboard.
  *
- * Controls:
- *  - a free-text area for typing what the user needs help with (custom
- *    context), or pasting a letter/bill,
- *  - a drag-and-drop zone for PDFs / images,
- *  - a native camera button for snapping a document on mobile.
- *
- * Both the typed context AND the uploaded document are sent to the backend
- * together (see lib/api.ts -> backend translate-form -> NVIDIA gemma-3n-e4b-it).
+ * Controls: free-text area (+ voice dictation), drag-drop / camera upload,
+ * an ELI5 toggle, an output-language selector, and (in TEST_MODE) synthetic
+ * demo-document loaders. The typed context AND the uploaded document are sent
+ * together to the backend; ELI5/language are forwarded to the AI prompt and
+ * toggling them on the result re-fetches the translation.
  */
 export function IntakeWorkspace({
   docType,
@@ -54,32 +46,90 @@ export function IntakeWorkspace({
   const [phase, setPhase] = useState<Phase>("input");
   const [result, setResult] = useState<TranslateResult | null>(null);
   const [error, setError] = useState("");
+  const [eli5, setEli5] = useState(false);
+  const [language, setLanguage] = useState<string>("English");
+
+  // --- Voice intake (Web Speech API) ---
+  const [listening, setListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+  const [voiceSupported, setVoiceSupported] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const SR =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    setVoiceSupported(!!SR);
+  }, []);
+
+  function toggleVoice() {
+    const SR =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) return;
+    if (listening) {
+      recognitionRef.current?.stop();
+      return;
+    }
+    const recognition = new SR();
+    recognition.lang = "en-US";
+    recognition.interimResults = false;
+    recognition.continuous = false;
+    recognition.onresult = (event: any) => {
+      const transcript = Array.from(event.results)
+        .map((r: any) => r[0]?.transcript ?? "")
+        .join(" ")
+        .trim();
+      if (transcript) setText((prev) => (prev ? prev + " " : "") + transcript);
+    };
+    recognition.onend = () => setListening(false);
+    recognition.onerror = () => setListening(false);
+    recognitionRef.current = recognition;
+    setListening(true);
+    recognition.start();
+  }
 
   const canSubmit = !!file || text.trim().length > 0;
 
-  async function handleTranslate() {
-    if (!canSubmit) return;
-    setPhase("loading");
-    setError("");
-    try {
-      // Send BOTH the user's typed context and the uploaded document.
-      const res = await translateForm({ text, file, docType });
-      setResult(res);
-      setPhase("result");
-    } catch (e) {
-      const msg =
-        e instanceof ApiError
-          ? e.status === 503
-            ? "The AI service isn't configured yet. Add an NVIDIA_API_KEY to the backend."
-            : e.status === 502
-              ? "ClearAid had trouble reading that. Please try again."
-              : e.status === 422 || e.status === 413
-                ? e.message
-                : `Translation failed (${e.status}). Please try again.`
-          : "Something went wrong reaching the translator.";
-      setError(msg);
-      setPhase("error");
-    }
+  const runTranslate = useCallback(
+    async (opts?: { eli5?: boolean; language?: string }) => {
+      if (!file && text.trim().length === 0) return;
+      setPhase("loading");
+      setError("");
+      try {
+        const res = await translateForm({
+          text,
+          file,
+          docType,
+          eli5: opts?.eli5 ?? eli5,
+          language: opts?.language ?? language,
+        });
+        setResult(res);
+        setPhase("result");
+      } catch (e) {
+        const msg =
+          e instanceof ApiError
+            ? e.status === 503
+              ? "The AI service isn't configured yet. Add an NVIDIA_API_KEY to the backend."
+              : e.status === 502
+                ? "ClearAid had trouble reading that. Please try again."
+                : e.status === 422 || e.status === 413
+                  ? e.message
+                  : `Translation failed (${e.status}). Please try again.`
+            : "Something went wrong reaching the translator.";
+        setError(msg);
+        setPhase("error");
+      }
+    },
+    [file, text, docType, eli5, language],
+  );
+
+  // Toggling ELI5 / changing language on the result RE-FETCHES the translation.
+  function handleEli5(next: boolean) {
+    setEli5(next);
+    if (phase === "result") runTranslate({ eli5: next });
+  }
+  function handleLanguage(next: string) {
+    setLanguage(next);
+    if (phase === "result") runTranslate({ language: next });
   }
 
   const originalText = file
@@ -93,6 +143,39 @@ export function IntakeWorkspace({
     exit: "exit" as const,
   };
 
+  // Controls row reused on both the input form and the result view.
+  const controls = (
+    <div className="flex flex-wrap items-center gap-3">
+      <button
+        type="button"
+        onClick={() => handleEli5(!eli5)}
+        aria-pressed={eli5}
+        className={
+          "flex min-h-tap items-center gap-2 rounded-md px-4 text-base font-bold shadow-clay-sm transition-all " +
+          (eli5 ? "bg-primary text-primary-foreground" : "bg-card text-foreground")
+        }
+      >
+        <Baby className="h-5 w-5" /> Explain like I&apos;m 5
+      </button>
+
+      <label className="flex min-h-tap items-center gap-2 rounded-md bg-card px-3 text-base font-semibold shadow-clay-sm">
+        <Languages className="h-5 w-5 text-primary" />
+        <select
+          value={language}
+          onChange={(e) => handleLanguage(e.target.value)}
+          aria-label="Output language"
+          className="bg-transparent py-2 pr-1 font-semibold outline-none"
+        >
+          {LANGUAGES.map((l) => (
+            <option key={l} value={l}>
+              {l}
+            </option>
+          ))}
+        </select>
+      </label>
+    </div>
+  );
+
   return (
     <AnimatePresence mode="wait">
       {phase === "loading" ? (
@@ -101,6 +184,7 @@ export function IntakeWorkspace({
         </motion.div>
       ) : phase === "result" && result ? (
         <motion.div key="result" {...motionProps}>
+          <div className="mb-4">{controls}</div>
           <TranslatorResult
             result={result}
             originalText={originalText}
@@ -108,6 +192,7 @@ export function IntakeWorkspace({
             onReset={() => {
               setFile(null);
               setText("");
+              setResult(null);
               setPhase("input");
             }}
           />
@@ -120,7 +205,30 @@ export function IntakeWorkspace({
             </h2>
             <p className="mt-2 text-base text-muted-foreground sm:text-lg">{subtitle}</p>
 
-            <div className="mt-6">
+            {TEST_MODE && (
+              <div className="mt-4 rounded-md border border-dashed border-primary/40 bg-primary/5 p-3">
+                <p className="mb-2 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-primary">
+                  <FlaskConical className="h-4 w-4" /> Demo documents (Test Mode)
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {DEMO_DOCS.map((d) => (
+                    <Button
+                      key={d.key}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setFile(null);
+                        setText(d.text);
+                      }}
+                    >
+                      {d.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="relative mt-6">
               <Textarea
                 rows={6}
                 value={text}
@@ -128,7 +236,25 @@ export function IntakeWorkspace({
                 placeholder="Type what you need help with — for example: 'I got this letter and I don't understand the deadline.' Or paste the text of a notice, bill, or form here…"
                 aria-label="Describe what you need help with"
               />
+              {voiceSupported && (
+                <button
+                  type="button"
+                  onClick={toggleVoice}
+                  aria-label={listening ? "Stop dictation" : "Dictate with your voice"}
+                  aria-pressed={listening}
+                  className={
+                    "absolute bottom-3 right-3 flex h-11 w-11 items-center justify-center rounded-full shadow-clay-sm transition-all " +
+                    (listening
+                      ? "animate-pulse bg-primary text-primary-foreground"
+                      : "bg-card text-primary")
+                  }
+                >
+                  {listening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                </button>
+              )}
             </div>
+
+            <div className="mt-4">{controls}</div>
 
             <div className="mt-5">
               <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
@@ -153,7 +279,7 @@ export function IntakeWorkspace({
             <Button
               size="lg"
               className="mt-6 w-full"
-              onClick={handleTranslate}
+              onClick={() => runTranslate()}
               disabled={!canSubmit}
             >
               <Wand2 className="h-5 w-5" /> Explain this for me

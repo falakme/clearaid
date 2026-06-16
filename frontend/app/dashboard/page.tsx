@@ -7,6 +7,8 @@ import { Settings } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { ThemeMode } from "@/components/theme";
 import { AlertsSection } from "@/components/alerts-section";
+import { NotificationsToggle } from "@/components/notifications-toggle";
+import { DataPurgeButton } from "@/components/data-purge-button";
 import { IntakeWorkspace } from "@/components/translator/intake-workspace";
 import { useProfile } from "@/lib/storage";
 
@@ -50,15 +52,20 @@ export default function DashboardPage() {
       </div>
 
       {profile.city && (
-        <div className="mb-10">
+        <div className="mb-6">
           <AlertsSection city={profile.city} />
         </div>
       )}
 
+      <div className="mb-10">
+        <NotificationsToggle city={profile.city} />
+      </div>
+
       <IntakeWorkspace docType="general" storageKey="dashboard-intake" />
 
-      <footer className="mt-12 text-center text-sm text-muted-foreground">
-        Your profile is stored only on this device. ClearAid never submits forms for you.
+      <footer className="mt-12 flex flex-col items-center gap-3 text-center text-sm text-muted-foreground">
+        <p>Your profile is stored only on this device. ClearAid never submits forms for you.</p>
+        <DataPurgeButton />
       </footer>
     </main>
   );

@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-export type ThemeName = "default" | "emergency";
+export type ThemeName = "default" | "emergency" | "recovery";
 
 /**
  * Programmatically swaps the app's accent color scheme by toggling a
@@ -11,19 +11,20 @@ export type ThemeName = "default" | "emergency";
  * (buttons, borders, rings, focus states, glossy clay shadows) without
  * touching individual components.
  *
- * - `emergency` -> highly visible RED scheme (red-600).
+ * - `emergency` -> highly visible RED scheme (active disaster).
+ * - `recovery`  -> reassuring GREEN scheme (alert resolved / recovery phase).
  * - `default`   -> calm, trustworthy blue scheme.
  *
  * Mount this once per route. It cleans up to the default scheme on unmount so
- * navigating away from the emergency intake restores the calm palette.
+ * navigating away restores the calm palette.
  */
 export function ThemeMode({ theme }: { theme: ThemeName }) {
   useEffect(() => {
     const root = document.documentElement;
-    if (theme === "emergency") {
-      root.setAttribute("data-theme", "emergency");
-    } else {
+    if (theme === "default") {
       root.removeAttribute("data-theme");
+    } else {
+      root.setAttribute("data-theme", theme);
     }
     return () => {
       root.removeAttribute("data-theme");

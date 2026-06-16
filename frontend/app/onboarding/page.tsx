@@ -3,25 +3,41 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, Loader2, Lock, MapPin, ShieldCheck } from "lucide-react";
+import { ArrowRight, FlaskConical, Loader2, Lock, MapPin, ShieldCheck } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { ThemeMode } from "@/components/theme";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { slideStep } from "@/lib/motion";
 import { useProfile } from "@/lib/storage";
 import { CLERK_ENABLED } from "@/lib/auth";
+import { TEST_MODE } from "@/lib/test-mode";
 import { fetchAlerts } from "@/lib/api";
 import { locateUser, GeoError, type GeoArea } from "@/lib/geo";
 import type { UserProfile } from "@/lib/types";
 
 type Status = "prompt" | "locating" | "error";
 
+/** Parse a typed "City, Region, Country" string into a coarse area. */
+function parseSimulatedArea(input: string): GeoArea {
+  const parts = input.split(",").map((s) => s.trim()).filter(Boolean);
+  const [city = "", region = "", country = ""] = parts;
+  return {
+    city,
+    region,
+    country,
+    label: parts.join(", ") || input.trim(),
+    zipCode: "",
+  };
+}
+
 export default function OnboardingPage() {
   const router = useRouter();
   const { save } = useProfile();
   const [status, setStatus] = useState<Status>("prompt");
   const [error, setError] = useState("");
+  const [sim, setSim] = useState("");
 
   /** Once an area is known, decide where to send the user. */
   async function routeForArea(area: GeoArea) {
@@ -72,6 +88,19 @@ export default function OnboardingPage() {
           ? e.message
           : "We couldn't read your location. Please try again.",
       );
+      setStatus("error");
+    }
+  }
+
+  /** TEST MODE: skip device GPS and use a typed city instead. */
+  async function simulateLocation() {
+    if (!sim.trim()) return;
+    setStatus("locating");
+    setError("");
+    try {
+      await routeForArea(parseSimulatedArea(sim));
+    } catch {
+      setError("Could not simulate that location. Try 'City, State, Country'.");
       setStatus("error");
     }
   }
@@ -137,6 +166,31 @@ export default function OnboardingPage() {
                   {status === "error" ? "Try again" : "Allow location & continue"}
                   <ArrowRight className="h-5 w-5" />
                 </Button>
+
+                {TEST_MODE && (
+                  <div className="mt-5 rounded-md border border-dashed border-primary/40 bg-primary/5 p-4">
+                    <p className="mb-2 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-primary">
+                      <FlaskConical className="h-4 w-4" /> Simulate Location (Test Mode)
+                    </p>
+                    <p className="mb-3 text-sm text-muted-foreground">
+                      Type a city to test localized alerts without device GPS.
+                    </p>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <Input
+                        value={sim}
+                        onChange={(e) => setSim(e.target.value)}
+                        placeholder="e.g. Dallas, Texas, USA"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") simulateLocation();
+                        }}
+                        aria-label="Simulate a city"
+                      />
+                      <Button variant="outline" onClick={simulateLocation} disabled={!sim.trim()}>
+                        Simulate
+                      </Button>
+                    </div>
+                  </div>
+                )}
 
                 {status === "error" && (
                   <Button

@@ -30,6 +30,16 @@
       inset 0 -8px 14px rgba(120, 20, 20, 0.45);
   }
 
+  [data-theme="recovery"] {
+    --color-primary: 22 163 74; /* #16A34A green-600 — recovery phase */
+    --color-primary-foreground: 255 255 255;
+    --color-ring: 22 163 74;
+    --accent-blob: rgba(22, 163, 74, 0.18);
+    --shadow-clay-primary: 0 16px 28px -10px rgba(22, 163, 74, 0.55),
+      inset 0 8px 14px rgba(255, 255, 255, 0.4),
+      inset 0 -8px 14px rgba(12, 92, 45, 0.45);
+  }
+
   html {
     -webkit-text-size-adjust: 100%;
   }

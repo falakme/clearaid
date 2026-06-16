@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { MapPin, Radio, Send } from "lucide-react";
+import { CheckCircle2, Loader2, MapPin, Radio, RefreshCw, Send } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { ThemeMode } from "@/components/theme";
 import { CityAlertMap } from "@/components/admin/city-alert-map";
@@ -10,92 +10,118 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { fetchAlerts } from "@/lib/api";
 import type { GeoArea } from "@/lib/geo";
-import type { Alert } from "@/lib/types";
+import type { Alert, ErTeam } from "@/lib/types";
 
 type Severity = "info" | "warning" | "success";
 
-interface AlertForm {
-  city: string;
-  region: string;
-  country: string;
-  label: string;
-  title: string;
-  message: string;
-  severity: Severity;
-  programs_open: number;
-}
-
-const BLANK: AlertForm = {
-  city: "",
-  region: "",
-  country: "",
-  label: "",
-  title: "",
-  message: "",
-  severity: "warning",
-  programs_open: 0,
-};
-
 /**
- * ER responder console (RBAC Tier 2). Strictly protected by middleware:
- * unauthenticated visitors hit the sign-in wall. ER teams pick a city on the
- * map and broadcast a localized, non-PII disaster alert that surfaces on
- * residents' dashboards in that city.
+ * ER responder console. ER teams are assigned a city by an admin (er_teams
+ * table). The team triggers ONE localized alert for their city; if an active
+ * alert already exists they can only UPDATE or RESOLVE it (the backend
+ * enforces one active alert per city). Admins without a team can pick any city.
  */
 export default function ErDashboardPage() {
-  const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [form, setForm] = useState<AlertForm>(BLANK);
+  const [team, setTeam] = useState<ErTeam | null>(null);
+  const [loadingTeam, setLoadingTeam] = useState(true);
+
+  // The city this console operates on (assigned for ER, picked for admins).
+  const [city, setCity] = useState("");
+  const [region, setRegion] = useState("");
+  const [country, setCountry] = useState("");
+  const [label, setLabel] = useState("");
+
+  const [existing, setExisting] = useState<Alert | null>(null);
+  const [title, setTitle] = useState("");
+  const [message, setMessage] = useState("");
+  const [severity, setSeverity] = useState<Severity>("warning");
+  const [programsOpen, setProgramsOpen] = useState(0);
+
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/alerts", { cache: "no-store" });
-      if (res.ok) setAlerts(await res.json());
-    } catch {
-      /* ignore */
-    }
+  // Load the signed-in user's ER team (assigned city).
+  useEffect(() => {
+    let active = true;
+    fetch("/api/er/me", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((t: ErTeam | null) => {
+        if (!active) return;
+        setTeam(t);
+        if (t?.assigned_city) {
+          setCity(t.assigned_city);
+          setRegion(t.region || "");
+          setCountry(t.country || "");
+          setLabel([t.assigned_city, t.region, t.country].filter(Boolean).join(", "));
+        }
+      })
+      .catch(() => {})
+      .finally(() => active && setLoadingTeam(false));
+    return () => {
+      active = false;
+    };
   }, []);
 
+  const refreshExisting = useCallback(async () => {
+    if (!city) {
+      setExisting(null);
+      return;
+    }
+    try {
+      const alerts = await fetchAlerts({ city });
+      const active = alerts.find((a) => a.is_active) ?? null;
+      setExisting(active);
+      if (active) {
+        setTitle(active.title);
+        setMessage(active.message);
+        setSeverity(active.severity);
+        setProgramsOpen(active.programs_open);
+      }
+    } catch {
+      setExisting(null);
+    }
+  }, [city]);
+
   useEffect(() => {
-    load();
-  }, [load]);
+    refreshExisting();
+  }, [refreshExisting]);
 
   function applyArea(a: GeoArea) {
-    setForm((f) => ({
-      ...f,
-      city: a.city,
-      region: a.region,
-      country: a.country,
-      label: a.label,
-    }));
+    setCity(a.city);
+    setRegion(a.region);
+    setCountry(a.country);
+    setLabel(a.label);
   }
 
-  async function submit() {
+  async function createAlert() {
     setBusy(true);
     setStatus("");
     try {
-      const res = await fetch("/api/admin/alerts", {
+      const res = await fetch("/api/er/alerts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          city: form.city,
-          region: form.region,
-          country: form.country,
-          title: form.title,
-          message: form.message,
-          severity: form.severity,
-          programs_open: form.programs_open,
+          city,
+          region,
+          country,
+          title,
+          message,
+          severity,
+          programs_open: programsOpen,
+          status: "active",
         }),
       });
       if (res.ok) {
-        setStatus(`Alert posted — live for residents in ${form.label} within seconds.`);
-        setForm(BLANK);
-        await load();
+        setStatus(`Alert live for residents in ${label || city}.`);
+        await refreshExisting();
+      } else if (res.status === 409) {
+        // A duplicate active alert already exists — switch to update mode.
+        setStatus("An active alert already exists for this city. Update it below.");
+        await refreshExisting();
       } else {
         const data = await res.json().catch(() => ({}));
-        setStatus(`Failed: ${data.detail ?? res.status}`);
+        setStatus(`Failed: ${typeof data.detail === "string" ? data.detail : res.status}`);
       }
     } catch {
       setStatus("Failed: backend unreachable.");
@@ -104,7 +130,43 @@ export default function ErDashboardPage() {
     }
   }
 
-  const canSubmit = !busy && !!form.city && !!form.title.trim() && !!form.message.trim();
+  async function patchExisting(body: Record<string, unknown>, okMsg: string) {
+    if (!existing) return;
+    setBusy(true);
+    setStatus("");
+    try {
+      const res = await fetch(`/api/er/alerts/${existing.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        setStatus(okMsg);
+        await refreshExisting();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setStatus(`Failed: ${typeof data.detail === "string" ? data.detail : res.status}`);
+      }
+    } catch {
+      setStatus("Failed: backend unreachable.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const updateAlert = () =>
+    patchExisting(
+      { title, message, severity, programs_open: programsOpen },
+      "Alert updated for residents.",
+    );
+
+  const resolveAlert = () =>
+    patchExisting(
+      { status: "resolved", severity: "success" },
+      "Alert marked resolved — residents now see recovery mode.",
+    );
+
+  const canCompose = !!city && !!title.trim() && !!message.trim() && !busy;
 
   return (
     <div className="mx-auto max-w-3xl px-5 py-8">
@@ -118,103 +180,120 @@ export default function ErDashboardPage() {
         </div>
       </header>
 
-      <h1 className="mb-1 mt-6 text-3xl font-extrabold tracking-tight">
-        Trigger a localized alert
-      </h1>
-      <p className="mb-6 text-base text-muted-foreground">
-        Select a city on the map, then broadcast a non-PII disaster alert to residents there.
-      </p>
-
-      <Card>
-        <h2 className="mb-3 flex items-center gap-2 text-xl font-bold">
-          <MapPin className="h-5 w-5 text-primary" /> 1 · Pick the city
-        </h2>
-        <CityAlertMap area={form.city ? form : null} onArea={applyArea} />
-
-        <h2 className="mb-3 mt-6 text-xl font-bold">2 · Compose the alert</h2>
-
-        <label className="block">
-          <span className="mb-1 block font-semibold">Title</span>
-          <Input
-            value={form.title}
-            placeholder="e.g. Flood recovery assistance open"
-            onChange={(e) => setForm({ ...form, title: e.target.value })}
-          />
-        </label>
-
-        <label className="mt-4 block">
-          <span className="mb-1 block font-semibold">Message</span>
-          <Textarea
-            rows={3}
-            value={form.message}
-            onChange={(e) => setForm({ ...form, message: e.target.value })}
-          />
-        </label>
-
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <label className="block">
-            <span className="mb-1 block font-semibold">Programs open</span>
-            <Input
-              type="number"
-              min={0}
-              value={form.programs_open}
-              onChange={(e) =>
-                setForm({ ...form, programs_open: Number(e.target.value) || 0 })
-              }
-            />
-          </label>
-          <div>
-            <span className="mb-1 block font-semibold">Severity</span>
-            <div className="flex gap-2">
-              {(["info", "warning", "success"] as Severity[]).map((s) => (
-                <Button
-                  key={s}
-                  size="sm"
-                  variant={form.severity === s ? "primary" : "outline"}
-                  onClick={() => setForm({ ...form, severity: s })}
-                >
-                  {s}
-                </Button>
-              ))}
-            </div>
-          </div>
+      {loadingTeam ? (
+        <div className="mt-10 flex items-center gap-2 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" /> Loading your assignment…
         </div>
+      ) : (
+        <>
+          <div className="mb-6 mt-6">
+            {team ? (
+              <>
+                <p className="text-lg text-muted-foreground">{team.org_name}</p>
+                <h1 className="mt-1 text-3xl font-extrabold tracking-tight">
+                  Coordinate aid for {label || team.assigned_city}
+                </h1>
+              </>
+            ) : (
+              <>
+                <h1 className="text-3xl font-extrabold tracking-tight">
+                  ER coordination console
+                </h1>
+                <p className="mt-1 text-base text-muted-foreground">
+                  You aren&apos;t assigned to a team. As an admin you can pick any city below.
+                </p>
+              </>
+            )}
+          </div>
 
-        {status && <p className="mt-4 rounded-md bg-primary/5 p-3 text-base">{status}</p>}
-
-        <Button size="lg" className="mt-5 w-full" onClick={submit} disabled={!canSubmit}>
-          <Send className="h-5 w-5" />
-          {busy ? "Posting…" : form.city ? `Post alert for ${form.label}` : "Pick a city first"}
-        </Button>
-      </Card>
-
-      <section className="mt-8">
-        <h2 className="mb-3 text-xl font-bold">
-          Active alerts ({alerts.filter((a) => a.is_active).length})
-        </h2>
-        <ul className="space-y-3">
-          {alerts
-            .filter((a) => a.is_active)
-            .map((a) => (
-              <li key={a.id} className="clay-card flex items-start gap-3 p-4">
-                <div className="flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-bold">{a.title}</h3>
-                    <Badge variant={a.severity}>{a.severity}</Badge>
-                    <Badge variant="neutral">
-                      {[a.city, a.region, a.country].filter(Boolean).join(", ") ||
-                        `ZIP ${a.zip_code}`}
-                    </Badge>
-                  </div>
-                  <p className="mt-1 text-base text-muted-foreground">{a.message}</p>
-                </div>
-              </li>
-            ))}
-          {alerts.filter((a) => a.is_active).length === 0 && (
-            <p className="text-muted-foreground">No active alerts right now.</p>
+          {/* Admins (no assigned team) pick a city; ER teams are locked to theirs. */}
+          {!team && (
+            <Card className="mb-6">
+              <h2 className="mb-2 flex items-center gap-2 font-bold">
+                <MapPin className="h-5 w-5 text-primary" /> Pick a city
+              </h2>
+              <CityAlertMap area={city ? { city, region, country, label } : null} onArea={applyArea} />
+            </Card>
           )}
-        </ul>
-      </section>
+
+          <Card>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="flex items-center gap-2 text-xl font-bold">
+                {existing ? "Update the active alert" : "Trigger a localized alert"}
+              </h2>
+              <button
+                onClick={refreshExisting}
+                aria-label="Refresh"
+                className="flex min-h-tap min-w-tap items-center justify-center rounded-md text-muted-foreground hover:text-primary"
+              >
+                <RefreshCw className="h-5 w-5" />
+              </button>
+            </div>
+
+            {existing && (
+              <p className="mb-4 flex items-center gap-2 rounded-md bg-primary/5 p-3 text-base">
+                <Radio className="h-5 w-5 text-primary" /> An alert is already active for{" "}
+                {label || city}. You can update or resolve it.
+              </p>
+            )}
+
+            <label className="block">
+              <span className="mb-1 block font-semibold">Title</span>
+              <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Flood recovery assistance open" />
+            </label>
+
+            <label className="mt-4 block">
+              <span className="mb-1 block font-semibold">Message</span>
+              <Textarea rows={3} value={message} onChange={(e) => setMessage(e.target.value)} />
+            </label>
+
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-1 block font-semibold">Programs open</span>
+                <Input
+                  type="number"
+                  min={0}
+                  value={programsOpen}
+                  onChange={(e) => setProgramsOpen(Number(e.target.value) || 0)}
+                />
+              </label>
+              <div>
+                <span className="mb-1 block font-semibold">Severity</span>
+                <div className="flex gap-2">
+                  {(["info", "warning", "success"] as Severity[]).map((s) => (
+                    <Button
+                      key={s}
+                      size="sm"
+                      variant={severity === s ? "primary" : "outline"}
+                      onClick={() => setSeverity(s)}
+                    >
+                      {s}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {status && <p className="mt-4 rounded-md bg-primary/5 p-3 text-base">{status}</p>}
+
+            {existing ? (
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                <Button size="lg" onClick={updateAlert} disabled={!canCompose}>
+                  <Send className="h-5 w-5" /> Update alert
+                </Button>
+                <Button size="lg" variant="outline" onClick={resolveAlert} disabled={busy}>
+                  <CheckCircle2 className="h-5 w-5" /> Mark resolved
+                </Button>
+              </div>
+            ) : (
+              <Button size="lg" className="mt-5 w-full" onClick={createAlert} disabled={!canCompose}>
+                <Send className="h-5 w-5" />
+                {busy ? "Posting…" : city ? `Trigger alert for ${label || city}` : "No city assigned"}
+              </Button>
+            )}
+          </Card>
+        </>
+      )}
 
       <footer className="mt-10 text-center text-sm text-muted-foreground">
         ER responder console · all data here is non-PII

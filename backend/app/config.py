@@ -32,6 +32,18 @@ class Settings(BaseSettings):
     # Max size (MB) for an uploaded document (PDF/image) before OCR.
     max_upload_mb: int = 10
 
+    # Brave Search API — used as a recommendation engine to surface official
+    # government relief / recovery links for an active alert's city.
+    brave_api_key: str = ""
+    brave_base_url: str = "https://api.search.brave.com/res/v1/web/search"
+
+    # Web Push (VAPID). Generate a keypair once and set these. When empty,
+    # push is disabled gracefully (subscriptions are still accepted/stored).
+    vapid_public_key: str = ""
+    vapid_private_key: str = ""
+    # "mailto:" subject required by the Web Push spec.
+    vapid_subject: str = "mailto:admin@clearaid.app"
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]

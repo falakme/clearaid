@@ -15,6 +15,9 @@ ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
 # Optional Clerk auth — leave empty to run with auth disabled.
 ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
 ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+# Test/demo mode (simulate location + demo documents).
+ARG NEXT_PUBLIC_TEST_MODE=false
+ENV NEXT_PUBLIC_TEST_MODE=$NEXT_PUBLIC_TEST_MODE
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .

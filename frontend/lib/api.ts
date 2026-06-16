@@ -1,4 +1,4 @@
-import type { Alert, Health, TranslateResult } from "./types";
+import type { Alert, Health, RecommendationsOut, TranslateResult } from "./types";
 
 /**
  * Base URL the browser uses to reach the API.
@@ -64,6 +64,10 @@ export interface TranslateInput {
   /** Uploaded PDF or image (OCR'd server-side). */
   file?: File | null;
   docType?: string;
+  /** Append an "explain like I'm 5" instruction to the AI prompt. */
+  eli5?: boolean;
+  /** Translate the output values into this language (e.g. "Spanish"). */
+  language?: string;
 }
 
 /**
@@ -77,12 +81,32 @@ export async function translateForm(input: TranslateInput): Promise<TranslateRes
   const form = new FormData();
   if (input.text && input.text.trim()) form.append("text", input.text.trim());
   form.append("doc_type", input.docType ?? "general");
+  if (input.eli5) form.append("eli5", "true");
+  if (input.language && input.language.trim()) form.append("language", input.language.trim());
   if (input.file) form.append("file", input.file);
 
   // Note: do NOT set Content-Type — the browser sets the multipart boundary.
   const res = await fetch(`${API_BASE_URL}/api/translate-form`, {
     method: "POST",
     body: form,
+  });
+  if (!res.ok) throw new ApiError(await parseError(res), res.status);
+  return res.json();
+}
+
+/** Fetch official relief (active) / recovery (resolved) links via Brave Search. */
+export async function fetchRecommendations(opts: {
+  city: string;
+  region?: string;
+  disaster?: string;
+  mode?: "relief" | "recovery";
+}): Promise<RecommendationsOut> {
+  const params = new URLSearchParams({ city: opts.city, mode: opts.mode ?? "relief" });
+  if (opts.region) params.set("region", opts.region);
+  if (opts.disaster) params.set("disaster", opts.disaster);
+
+  const res = await fetch(`${API_BASE_URL}/api/recommendations?${params.toString()}`, {
+    cache: "no-store",
   });
   if (!res.ok) throw new ApiError(await parseError(res), res.status);
   return res.json();

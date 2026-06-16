@@ -5,12 +5,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSignIn } from "@clerk/nextjs";
 import type { EmailCodeFactor } from "@clerk/types";
-import { ArrowRight, KeyRound, Loader2, Mail } from "lucide-react";
+import { ArrowRight, Loader2, Mail } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { ThemeMode } from "@/components/theme";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Field } from "./field";
+import { OtpInput } from "./otp-input";
 import { clerkErrorMessage, useRedirectTarget } from "./auth-utils";
 
 /**
@@ -132,16 +133,10 @@ export function SignInForm() {
             </p>
 
             <form onSubmit={onVerify} className="mt-6 space-y-4">
-              <Field
-                label="Verification code"
-                icon={<KeyRound className="h-5 w-5" />}
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                placeholder="123456"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                required
-              />
+              <div>
+                <span className="mb-2 block font-semibold">Verification code</span>
+                <OtpInput value={code} onChange={setCode} onComplete={() => {}} />
+              </div>
 
               {error && (
                 <p className="rounded-md bg-warning/15 p-3 text-base text-amber-800">
@@ -149,7 +144,12 @@ export function SignInForm() {
                 </p>
               )}
 
-              <Button type="submit" size="lg" className="w-full" disabled={loading || !isLoaded}>
+              <Button
+                type="submit"
+                size="lg"
+                className="w-full"
+                disabled={loading || !isLoaded || code.length < 6}
+              >
                 {loading ? (
                   <>
                     <Loader2 className="h-5 w-5 animate-spin" /> Verifying…

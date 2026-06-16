@@ -39,9 +39,11 @@ Follow this exact JSON schema strictly:
   "diagram_steps": [
     { "step_number": 1, "title": "Brief Step Title", "description": "What to do in this phase" },
     { "step_number": 2, "title": "Next Step Title", "description": "What to do next" }
-  ]
+  ],
+  "ai_confidence_score": "High"
 }
-If the document does not contain data relevant for a table, leave the 'table_data' arrays empty. Always populate the markdown explanation, the task_list, and the diagram_steps."""
+The "ai_confidence_score" MUST be exactly one of "High", "Medium", or "Low". Set it to "High" only when the document text is clear and complete, "Medium" when some details are ambiguous, and "Low" when the input is sparse, garbled, or you are largely inferring.
+If the document does not contain data relevant for a table, leave the 'table_data' arrays empty. Always populate the markdown explanation, the task_list, the diagram_steps, and the ai_confidence_score."""
 
 RETRY_INSTRUCTION = (
     "Your previous reply was not valid JSON. Reply again with ONLY the raw JSON "
@@ -214,11 +216,16 @@ def _normalize(data: dict, source_text: str) -> TranslateResponse:
             number = index
         steps.append(DiagramStep(step_number=number, title=title or f"Step {number}", description=description))
 
+    # Confidence score — coerce to one of High|Medium|Low (default Medium).
+    raw_conf = str(data.get("ai_confidence_score", "")).strip().capitalize()
+    confidence = raw_conf if raw_conf in {"High", "Medium", "Low"} else "Medium"
+
     return TranslateResponse(
         plain_language_explanation_markdown=markdown,
         task_list=tasks,
         table_data=TableData(headers=headers, rows=rows),
         diagram_steps=steps,
+        ai_confidence_score=confidence,
         source_text=source_text[:12000],
     )
 
@@ -263,6 +270,8 @@ async def translate_form(
     document_text: str,
     doc_type: str = "general",
     user_context: str = "",
+    eli5: bool = False,
+    language: str = "",
 ) -> TranslateResponse:
     """Call the NVIDIA model and return a structured checklist.
 
@@ -272,9 +281,11 @@ async def translate_form(
     explanation reflects the user's situation as well as the document.
 
     `doc_type` selects an optional domain hint layered on top of the canonical
-    system prompt. Retries once with a corrective instruction if the first
-    reply is not parseable JSON. Raises NvidiaUpstreamError (handled as HTTP
-    502) rather than crashing if the model output cannot be parsed.
+    system prompt. `eli5` appends an "explain like I'm 5" instruction;
+    `language` forces the JSON values to be translated into that language.
+    Retries once with a corrective instruction if the first reply is not
+    parseable JSON. Raises NvidiaUpstreamError (handled as HTTP 502) rather
+    than crashing if the model output cannot be parsed.
     """
     settings = get_settings()
 
@@ -307,6 +318,32 @@ async def translate_form(
     hint = _doc_type_hint(doc_type)
     if hint:
         messages.append({"role": "system", "content": hint})
+    if eli5:
+        messages.append(
+            {
+                "role": "system",
+                "content": (
+                    "Explain this as if I am 5 years old. Use very simple words and "
+                    "short sentences in the plain_language_explanation_markdown and "
+                    "the task_list, while keeping all facts, dates, and amounts "
+                    "accurate. Still return the exact JSON schema."
+                ),
+            }
+        )
+    lang = (language or "").strip()
+    if lang and lang.lower() not in {"english", "en"}:
+        messages.append(
+            {
+                "role": "system",
+                "content": (
+                    f"Output the JSON values strictly translated into {lang}. "
+                    "Translate every human-readable string value (explanation, tasks, "
+                    "table headers/cells, diagram titles/descriptions) into "
+                    f"{lang}. Keep the JSON keys and structure exactly as specified, "
+                    "and keep ai_confidence_score as one of High, Medium, or Low."
+                ),
+            }
+        )
     messages.append({"role": "user", "content": user_message})
 
     async with httpx.AsyncClient(timeout=60.0) as client:

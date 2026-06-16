@@ -33,7 +33,34 @@ export interface Alert {
   severity: "info" | "warning" | "success";
   programs_open: number;
   is_active: boolean;
+  /** Lifecycle: "active" (emergency) | "resolved" (recovery phase). */
+  status: "active" | "resolved";
   created_at: string;
+}
+
+/** An emergency-response team record (admin-managed). */
+export interface ErTeam {
+  id: number;
+  clerk_user_id: string | null;
+  org_name: string;
+  assigned_city: string;
+  region: string;
+  country: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+/** A single official relief/recovery link from Brave Search. */
+export interface Recommendation {
+  title: string;
+  url: string;
+  description: string;
+}
+
+export interface RecommendationsOut {
+  mode: "relief" | "recovery";
+  query: string;
+  results: Recommendation[];
 }
 
 /** Document type that selects the backend AI prompt. */
@@ -64,6 +91,8 @@ export interface TranslateResult {
   task_list: TaskItem[];
   table_data: TableData;
   diagram_steps: DiagramStep[];
+  /** Model's self-reported confidence: High | Medium | Low. */
+  ai_confidence_score: "High" | "Medium" | "Low";
   /** Backend-attached provenance (exact extracted/source text). */
   source_text: string;
 }

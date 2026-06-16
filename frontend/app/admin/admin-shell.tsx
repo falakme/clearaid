@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, ArrowLeft, Bell, Radio, Wand2 } from "lucide-react";
+import { Activity, ArrowLeft, Bell, Radio, Users, Wand2 } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 const NAV = [
   { href: "/admin", label: "Overview", icon: Activity },
   { href: "/admin/mock-alerts", label: "Alerts", icon: Bell },
+  { href: "/admin/er-teams", label: "ER Teams", icon: Users },
   { href: "/admin/translate", label: "AI tester", icon: Wand2 },
 ];
 

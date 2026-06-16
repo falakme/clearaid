@@ -18,6 +18,8 @@ class AlertBase(BaseModel):
     message: str
     severity: str = Field(default="info", pattern="^(info|warning|success)$")
     programs_open: int = Field(default=0, ge=0)
+    # Lifecycle: active (emergency) | resolved (recovery).
+    status: str = Field(default="active", pattern="^(active|resolved)$")
 
 
 class AlertCreate(AlertBase):
@@ -25,7 +27,7 @@ class AlertCreate(AlertBase):
 
 
 class AlertUpdate(BaseModel):
-    """Partial update for an alert (admin). All fields optional."""
+    """Partial update for an alert (admin/ER). All fields optional."""
 
     city: Optional[str] = Field(default=None, max_length=120)
     region: Optional[str] = Field(default=None, max_length=120)
@@ -36,6 +38,7 @@ class AlertUpdate(BaseModel):
     severity: Optional[str] = Field(default=None, pattern="^(info|warning|success)$")
     programs_open: Optional[int] = Field(default=None, ge=0)
     is_active: Optional[bool] = None
+    status: Optional[str] = Field(default=None, pattern="^(active|resolved)$")
 
 
 class AlertOut(AlertBase):
@@ -44,6 +47,61 @@ class AlertOut(AlertBase):
     id: int
     is_active: bool
     created_at: datetime
+
+
+# --- ER Teams ---
+class ErTeamBase(BaseModel):
+    org_name: str = Field(..., max_length=160, examples=["Red Cross Dallas"])
+    assigned_city: str = Field(..., max_length=120, examples=["Dallas"])
+    region: str = Field(default="", max_length=120, examples=["Texas"])
+    country: str = Field(default="", max_length=120, examples=["USA"])
+    clerk_user_id: Optional[str] = Field(default=None, max_length=64)
+    is_active: bool = True
+
+
+class ErTeamCreate(ErTeamBase):
+    """Admin creates an ER team and assigns it a city."""
+
+
+class ErTeamUpdate(BaseModel):
+    org_name: Optional[str] = Field(default=None, max_length=160)
+    assigned_city: Optional[str] = Field(default=None, max_length=120)
+    region: Optional[str] = Field(default=None, max_length=120)
+    country: Optional[str] = Field(default=None, max_length=120)
+    clerk_user_id: Optional[str] = Field(default=None, max_length=64)
+    is_active: Optional[bool] = None
+
+
+class ErTeamOut(ErTeamBase):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    created_at: datetime
+
+
+# --- Web Push ---
+class PushKeys(BaseModel):
+    p256dh: str
+    auth: str
+
+
+class PushSubscriptionIn(BaseModel):
+    endpoint: str
+    keys: PushKeys
+    city: str = Field(default="", max_length=120)
+
+
+# --- Recommendations (Brave Search) ---
+class Recommendation(BaseModel):
+    title: str
+    url: str
+    description: str = ""
+
+
+class RecommendationsOut(BaseModel):
+    mode: str = "relief"  # relief | recovery
+    query: str = ""
+    results: list[Recommendation] = Field(default_factory=list)
 
 
 # --- Translate ---
@@ -81,6 +139,8 @@ class TranslateResponse(BaseModel):
     task_list: list[TaskItem] = Field(default_factory=list)
     table_data: TableData = Field(default_factory=TableData)
     diagram_steps: list[DiagramStep] = Field(default_factory=list)
+    # Model's self-reported confidence in the extraction: High | Medium | Low.
+    ai_confidence_score: str = Field(default="Medium", pattern="^(High|Medium|Low)$")
     # Backend-attached provenance (the exact extracted/source text).
     source_text: str = ""
 

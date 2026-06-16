@@ -24,7 +24,8 @@ export async function GET() {
 export async function POST(request: Request) {
   const body = await request.json();
   try {
-    const res = await fetch(`${BACKEND}/api/alerts`, {
+    // Admins bypass the one-active-alert-per-city grouping rule (force=true).
+    const res = await fetch(`${BACKEND}/api/alerts?force=true`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

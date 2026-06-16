@@ -1,21 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { LifeBuoy, Settings, TriangleAlert } from "lucide-react";
+import { CheckCircle2, LifeBuoy, Settings, TriangleAlert } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { ThemeMode } from "@/components/theme";
 import { IntakeWorkspace } from "@/components/translator/intake-workspace";
+import { RecommendedActions } from "@/components/recommended-actions";
+import { NotificationsToggle } from "@/components/notifications-toggle";
+import { DataPurgeButton } from "@/components/data-purge-button";
 import { spring } from "@/lib/motion";
 import { fetchAlerts } from "@/lib/api";
 import { useProfile } from "@/lib/storage";
 import type { Alert } from "@/lib/types";
 
 /**
- * Emergency intake (Scenario A). Reached directly when an active emergency is
- * detected for the user's area — authentication is bypassed entirely. The RED
- * accent scheme is applied programmatically via <ThemeMode theme="emergency">.
+ * Emergency intake (Scenario A). Reached when an alert is active for the
+ * user's area — authentication is bypassed. The accent scheme is applied
+ * programmatically: RED while the alert is active, GREEN once it's resolved
+ * (recovery phase). Recommended Actions come from the Brave Search pipeline
+ * (emergency relief while active, long-term recovery grants once resolved).
  */
 export default function EmergencyPage() {
   const { profile } = useProfile();
@@ -32,10 +37,17 @@ export default function EmergencyPage() {
     };
   }, [profile?.city]);
 
+  // The most recent active alert drives the theme + recommendations mode.
+  const primary = alerts[0];
+  const resolved = primary?.status === "resolved";
+  const mode = resolved ? "recovery" : "relief";
+
+  const disaster = useMemo(() => primary?.title ?? "disaster", [primary]);
+
   return (
     <main className="mx-auto max-w-3xl px-5 py-8">
-      {/* Programmatic RED accent scheme for the emergency surface. */}
-      <ThemeMode theme="emergency" />
+      {/* Programmatic accent scheme: green when resolved, red while active. */}
+      <ThemeMode theme={resolved ? "recovery" : "emergency"} />
 
       <header className="flex items-center justify-between">
         <Brand href="/emergency" />
@@ -54,13 +66,17 @@ export default function EmergencyPage() {
         transition={spring}
         className="mt-6 flex items-center gap-3 rounded-md border-2 border-primary bg-primary/10 p-4 text-primary"
       >
-        <TriangleAlert className="h-6 w-6 shrink-0" />
+        {resolved ? <CheckCircle2 className="h-6 w-6 shrink-0" /> : <TriangleAlert className="h-6 w-6 shrink-0" />}
         <div>
           <p className="text-lg font-extrabold">
-            Active emergency{profile?.label ? ` near ${profile.label}` : " in your area"}
+            {resolved
+              ? `Recovery phase${profile?.label ? ` — ${profile.label}` : ""}`
+              : `Active emergency${profile?.label ? ` near ${profile.label}` : " in your area"}`}
           </p>
           <p className="text-base">
-            All ClearAid tools are open — no sign-in needed. Get help below.
+            {resolved
+              ? "The immediate emergency has ended. Here's help for recovery."
+              : "All ClearAid tools are open — no sign-in needed. Get help below."}
           </p>
         </div>
       </motion.div>
@@ -82,7 +98,22 @@ export default function EmergencyPage() {
         </ul>
       )}
 
-      <div className="mt-8">
+      <div className="mt-4">
+        <NotificationsToggle city={profile?.city ?? ""} />
+      </div>
+
+      {profile?.city && (
+        <div className="mt-6">
+          <RecommendedActions
+            city={profile.city}
+            region={profile.region}
+            disaster={disaster}
+            mode={mode}
+          />
+        </div>
+      )}
+
+      <div className="mt-6">
         <IntakeWorkspace
           docType="emergency"
           storageKey="emergency-intake"
@@ -90,8 +121,9 @@ export default function EmergencyPage() {
         />
       </div>
 
-      <footer className="mt-12 text-center text-sm text-muted-foreground">
-        Free and anonymous. ClearAid never submits anything for you.
+      <footer className="mt-12 flex flex-col items-center gap-3 text-center text-sm text-muted-foreground">
+        <p>Free and anonymous. ClearAid never submits anything for you.</p>
+        <DataPurgeButton />
       </footer>
     </main>
   );
