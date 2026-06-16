@@ -2,14 +2,17 @@
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Lock } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { Badge } from "@/components/ui/badge";
+import { ModuleGate } from "@/components/auth/module-gate";
 import { TranslatorView } from "@/components/translator/translator-view";
 import { getProgram } from "@/lib/mock-programs";
+import { useActiveEmergency } from "@/lib/use-emergency";
 
 export default function TranslatePage({ params }: { params: { id: string } }) {
   const program = getProgram(params.id);
+  const { hasEmergency, loaded } = useActiveEmergency();
   if (!program) return notFound();
 
   return (
@@ -25,12 +28,22 @@ export default function TranslatePage({ params }: { params: { id: string } }) {
       </header>
 
       <div className="mb-6 mt-6">
-        <Badge variant="info">{program.agency}</Badge>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="info">{program.agency}</Badge>
+          <Badge variant="neutral">{program.category}</Badge>
+          {program.gated && (
+            <Badge variant="warning">
+              <Lock className="h-3.5 w-3.5" /> Account tool
+            </Badge>
+          )}
+        </div>
         <h1 className="mt-2 text-3xl font-extrabold tracking-tight">{program.title}</h1>
         <p className="mt-1 text-lg text-muted-foreground">{program.description}</p>
       </div>
 
-      <TranslatorView program={program} />
+      <ModuleGate gated={program.gated} hasEmergency={hasEmergency} ready={loaded}>
+        <TranslatorView program={program} />
+      </ModuleGate>
     </main>
   );
 }

@@ -38,3 +38,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ detail: "Backend unreachable" }, { status: 502 });
   }
 }
+
+/** Clear ALL alerts (danger). */
+export async function DELETE() {
+  try {
+    const res = await fetch(`${BACKEND}/api/alerts`, {
+      method: "DELETE",
+      headers: { "X-Admin-Key": ADMIN_KEY },
+    });
+    if (res.status === 204) return new NextResponse(null, { status: 204 });
+    const data = await res.json().catch(() => ({}));
+    return NextResponse.json(data, { status: res.status });
+  } catch {
+    return NextResponse.json({ detail: "Backend unreachable" }, { status: 502 });
+  }
+}

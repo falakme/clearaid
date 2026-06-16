@@ -1,29 +1,72 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Radio, Send, Trash2, Zap } from "lucide-react";
-import { Brand } from "@/components/brand";
+import { AnimatePresence, motion } from "framer-motion";
+import { Eye, EyeOff, Pencil, Send, Trash2, X, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { spring } from "@/lib/motion";
 import type { Alert } from "@/lib/types";
 
 type Severity = "info" | "warning" | "success";
 
-const PRESET = {
+interface AlertForm {
+  zip_code: string;
+  title: string;
+  message: string;
+  severity: Severity;
+  programs_open: number;
+}
+
+const BLANK: AlertForm = {
   zip_code: "77001",
-  title: "Hurricane warning lifted",
-  message:
-    "Hurricane warning lifted. 3 aid programs now open for your zip code.",
-  severity: "success" as Severity,
-  programs_open: 3,
+  title: "",
+  message: "",
+  severity: "info",
+  programs_open: 0,
 };
 
-export default function MockAlertsPage() {
+const PRESETS: { label: string; data: AlertForm }[] = [
+  {
+    label: "Hurricane lifted",
+    data: {
+      zip_code: "77001",
+      title: "Hurricane warning lifted",
+      message: "Hurricane warning lifted. 3 aid programs now open for your zip code.",
+      severity: "success",
+      programs_open: 3,
+    },
+  },
+  {
+    label: "Flood recovery",
+    data: {
+      zip_code: "70112",
+      title: "Flood recovery assistance open",
+      message: "Federal flood recovery assistance is now accepting applications.",
+      severity: "info",
+      programs_open: 2,
+    },
+  },
+  {
+    label: "Evacuation order",
+    data: {
+      zip_code: "33101",
+      title: "Voluntary evacuation in effect",
+      message: "A voluntary evacuation is in effect. Shelters are open nearby.",
+      severity: "warning",
+      programs_open: 0,
+    },
+  },
+];
+
+
+export default function AlertsManagerPage() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [form, setForm] = useState(PRESET);
+  const [form, setForm] = useState<AlertForm>(PRESETS[0].data);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -36,18 +79,25 @@ export default function MockAlertsPage() {
     load();
   }, [load]);
 
+  function resetForm() {
+    setForm(BLANK);
+    setEditingId(null);
+  }
 
-  async function trigger() {
+  async function submit() {
     setBusy(true);
     setStatus("");
     try {
-      const res = await fetch("/api/admin/alerts", {
-        method: "POST",
+      const url = editingId ? `/api/admin/alerts/${editingId}` : "/api/admin/alerts";
+      const method = editingId ? "PATCH" : "POST";
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
       if (res.ok) {
-        setStatus("Alert triggered — it will appear on the dashboard within seconds.");
+        setStatus(editingId ? "Alert updated." : "Alert triggered — live on the dashboard within seconds.");
+        resetForm();
         await load();
       } else {
         const data = await res.json().catch(() => ({}));
@@ -60,29 +110,64 @@ export default function MockAlertsPage() {
     }
   }
 
-  async function deactivate(id: number) {
-    await fetch(`/api/admin/alerts/${id}`, { method: "DELETE" });
+  function startEdit(a: Alert) {
+    setEditingId(a.id);
+    setForm({
+      zip_code: a.zip_code,
+      title: a.title,
+      message: a.message,
+      severity: a.severity,
+      programs_open: a.programs_open,
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function toggleActive(a: Alert) {
+    await fetch(`/api/admin/alerts/${a.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_active: !a.is_active }),
+    });
+    await load();
+  }
+
+  async function remove(a: Alert) {
+    if (!confirm(`Permanently delete "${a.title}"?`)) return;
+    await fetch(`/api/admin/alerts/${a.id}`, { method: "DELETE" });
+    if (editingId === a.id) resetForm();
     await load();
   }
 
 
   return (
-    <main className="mx-auto max-w-3xl px-5 py-8">
-      <header className="flex items-center justify-between">
-        <Brand href="/dashboard" />
-        <Badge variant="warning">
-          <Radio className="h-4 w-4" /> Demo control
-        </Badge>
-      </header>
+    <div className="space-y-6">
+      <Card>
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold">
+            {editingId ? "Edit alert" : "Trigger an alert"}
+          </h2>
+          {editingId && (
+            <Button variant="ghost" size="sm" onClick={resetForm}>
+              <X className="h-4 w-4" /> Cancel edit
+            </Button>
+          )}
+        </div>
 
-      <h1 className="mt-6 text-3xl font-extrabold tracking-tight">Mock alert console</h1>
-      <p className="mt-1 text-lg text-muted-foreground">
-        Trigger a simulated disaster alert to demo live dashboard updates during the
-        pitch. This data is non-PII and stored in Postgres.
-      </p>
+        {!editingId && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {PRESETS.map((p) => (
+              <Button
+                key={p.label}
+                variant="outline"
+                size="sm"
+                onClick={() => setForm(p.data)}
+              >
+                <Zap className="h-4 w-4" /> {p.label}
+              </Button>
+            ))}
+          </div>
+        )}
 
-      <Card className="mt-6">
-        <h2 className="text-xl font-bold">Trigger an alert</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <label className="block">
             <span className="mb-1 block font-semibold">ZIP code</span>
@@ -124,7 +209,7 @@ export default function MockAlertsPage() {
           />
         </label>
 
-        <label className="mt-4 block">
+        <div className="mt-4">
           <span className="mb-1 block font-semibold">Severity</span>
           <div className="flex gap-2">
             {(["info", "warning", "success"] as Severity[]).map((s) => (
@@ -138,63 +223,83 @@ export default function MockAlertsPage() {
               </Button>
             ))}
           </div>
-        </label>
-
-        {status && (
-          <p className="mt-4 rounded-md bg-primary/5 p-3 text-base">{status}</p>
-        )}
-
-        <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-          <Button size="lg" onClick={trigger} disabled={busy} className="flex-1">
-            <Send className="h-5 w-5" /> {busy ? "Triggering…" : "Trigger alert"}
-          </Button>
-          <Button
-            size="lg"
-            variant="outline"
-            onClick={() => setForm(PRESET)}
-            className="flex-1"
-          >
-            <Zap className="h-5 w-5" /> Reset to preset
-          </Button>
         </div>
+
+        {status && <p className="mt-4 rounded-md bg-primary/5 p-3 text-base">{status}</p>}
+
+        <Button
+          size="lg"
+          className="mt-5 w-full"
+          onClick={submit}
+          disabled={busy || !form.title.trim() || !form.message.trim() || !form.zip_code}
+        >
+          <Send className="h-5 w-5" />
+          {busy ? "Saving…" : editingId ? "Save changes" : "Trigger alert"}
+        </Button>
       </Card>
 
-
-      <section className="mt-8">
-        <h2 className="mb-3 text-xl font-bold">All alerts</h2>
+      <section>
+        <h2 className="mb-3 text-xl font-bold">All alerts ({alerts.length})</h2>
         {alerts.length === 0 && (
           <p className="text-muted-foreground">No alerts yet. Trigger one above.</p>
         )}
         <ul className="space-y-3">
-          {alerts.map((a) => (
-            <li key={a.id} className="glass-card flex items-start gap-4 p-4">
-              <div className="flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="font-bold">{a.title}</h3>
-                  <Badge variant={a.severity}>{a.severity}</Badge>
-                  <Badge variant="neutral">ZIP {a.zip_code}</Badge>
-                  {!a.is_active && <Badge variant="neutral">inactive</Badge>}
+          <AnimatePresence initial={false}>
+            {alerts.map((a) => (
+              <motion.li
+                key={a.id}
+                layout
+                initial={{ opacity: 0, y: -10, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95, height: 0, marginTop: 0 }}
+                transition={spring}
+                className={
+                  "clay-card flex items-start gap-4 p-4 " + (a.is_active ? "" : "opacity-60")
+                }
+              >
+                <div className="flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="font-bold">{a.title}</h3>
+                    <Badge variant={a.severity}>{a.severity}</Badge>
+                    <Badge variant="neutral">ZIP {a.zip_code}</Badge>
+                    {a.programs_open > 0 && (
+                      <Badge variant="success">{a.programs_open} open</Badge>
+                    )}
+                    {!a.is_active && <Badge variant="neutral">inactive</Badge>}
+                  </div>
+                  <p className="mt-1 text-base text-muted-foreground">{a.message}</p>
                 </div>
-                <p className="mt-1 text-base text-muted-foreground">{a.message}</p>
-              </div>
-              {a.is_active && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Deactivate alert"
-                  onClick={() => deactivate(a.id)}
-                >
-                  <Trash2 className="h-5 w-5" />
-                </Button>
-              )}
-            </li>
-          ))}
+                <div className="flex shrink-0 flex-col gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={a.is_active ? "Deactivate" : "Activate"}
+                    onClick={() => toggleActive(a)}
+                  >
+                    {a.is_active ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Edit"
+                    onClick={() => startEdit(a)}
+                  >
+                    <Pencil className="h-5 w-5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Delete"
+                    onClick={() => remove(a)}
+                  >
+                    <Trash2 className="h-5 w-5" />
+                  </Button>
+                </div>
+              </motion.li>
+            ))}
+          </AnimatePresence>
         </ul>
       </section>
-
-      <footer className="mt-10 text-center text-sm text-muted-foreground">
-        Hidden demo route · stores only non-PII alert data
-      </footer>
-    </main>
+    </div>
   );
 }

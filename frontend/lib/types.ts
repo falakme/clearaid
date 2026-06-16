@@ -19,7 +19,16 @@ export interface Alert {
   created_at: string;
 }
 
-/** A mock relief program shown on the dashboard to-do list. */
+/** Document type that selects the backend AI prompt. */
+export type DocType =
+  | "emergency"
+  | "eviction"
+  | "medical_bill"
+  | "school"
+  | "housing"
+  | "general";
+
+/** A document-translation module shown on the dashboard. */
 export interface ReliefProgram {
   id: string;
   title: string;
@@ -28,14 +37,49 @@ export interface ReliefProgram {
   /** Pre-filled sample form text used to demo the translator. */
   sampleFormText: string;
   officialUrl: string;
+  /** Selects the backend system prompt. */
+  docType: DocType;
+  /** Requires Clerk sign-in when there is NO active emergency. */
+  gated: boolean;
+  /** Grouping label shown on the dashboard. */
+  category: "Emergency" | "Housing & Legal" | "Medical" | "School" | "Government";
 }
 
-/** Structured output returned by POST /api/translate-form. */
+/** A single actionable step in the interactive task list. */
+export interface TaskItem {
+  id: number;
+  task: string;
+}
+
+/** Tabular allocations (fee breakdowns, eligibility brackets, etc.). */
+export interface TableData {
+  headers: string[];
+  rows: string[][];
+}
+
+/** A node in the process visualizer / step-by-step flowchart. */
+export interface DiagramStep {
+  step_number: number;
+  title: string;
+  description: string;
+}
+
+/** Structured, multi-component output returned by POST /api/translate-form. */
 export interface TranslateResult {
-  bottom_line_summary: string;
-  deadline: string | null;
-  required_attachments: string[];
-  signature_locations: string[];
-  critical_warnings: string[];
-  source_text_reference: string;
+  plain_language_explanation_markdown: string;
+  task_list: TaskItem[];
+  table_data: TableData;
+  diagram_steps: DiagramStep[];
+  /** Backend-attached provenance (exact extracted/source text). */
+  source_text: string;
+}
+
+/** Backend health/status payload (GET /api/health). */
+export interface Health {
+  status: string;
+  service: string;
+  version: string;
+  nvidia_configured: boolean;
+  nvidia_model: string;
+  database_connected: boolean;
 }

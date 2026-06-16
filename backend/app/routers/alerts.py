@@ -4,19 +4,22 @@ Public read endpoint for the dashboard + admin-protected write endpoints
 for the hackathon demo control panel. All data here is non-PII.
 """
 
+from typing import Optional
+
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.database import get_db
 from app.models import Alert
-from app.schemas import AlertCreate, AlertOut
+from app.schemas import AlertCreate, AlertOut, AlertUpdate
+from app.seed import insert_demo_alerts
 
 router = APIRouter(tags=["alerts"])
 
 
-def require_admin(x_admin_key: str | None = Header(default=None)) -> None:
+def require_admin(x_admin_key: Optional[str] = Header(default=None)) -> None:
     """Guard admin write endpoints with a shared key."""
     settings = get_settings()
     if not x_admin_key or x_admin_key != settings.admin_api_key:
@@ -25,7 +28,7 @@ def require_admin(x_admin_key: str | None = Header(default=None)) -> None:
 
 @router.get("/api/alerts", response_model=list[AlertOut])
 def list_alerts(
-    zip_code: str | None = Query(default=None, description="Filter by ZIP code."),
+    zip_code: Optional[str] = Query(default=None, description="Filter by ZIP code."),
     include_inactive: bool = Query(default=False),
     db: Session = Depends(get_db),
 ) -> list[Alert]:
@@ -54,15 +57,58 @@ def create_alert(payload: AlertCreate, db: Session = Depends(get_db)) -> Alert:
     return alert
 
 
+@router.post(
+    "/api/alerts/seed",
+    response_model=list[AlertOut],
+    status_code=201,
+    dependencies=[Depends(require_admin)],
+)
+def seed_alerts(db: Session = Depends(get_db)) -> list[Alert]:
+    """Admin/demo: load the bundled demo alert set."""
+    insert_demo_alerts(db)
+    stmt = select(Alert).order_by(Alert.created_at.desc())
+    return list(db.scalars(stmt).all())
+
+
+@router.patch(
+    "/api/alerts/{alert_id}",
+    response_model=AlertOut,
+    dependencies=[Depends(require_admin)],
+)
+def update_alert(
+    alert_id: int, payload: AlertUpdate, db: Session = Depends(get_db)
+) -> Alert:
+    """Admin/demo: edit an alert or toggle its active state."""
+    alert = db.get(Alert, alert_id)
+    if alert is None:
+        raise HTTPException(status_code=404, detail="Alert not found.")
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(alert, field, value)
+    db.commit()
+    db.refresh(alert)
+    return alert
+
+
 @router.delete(
     "/api/alerts/{alert_id}",
     status_code=204,
     dependencies=[Depends(require_admin)],
 )
-def deactivate_alert(alert_id: int, db: Session = Depends(get_db)) -> None:
-    """Admin/demo: deactivate (soft-delete) an alert."""
+def delete_alert(alert_id: int, db: Session = Depends(get_db)) -> None:
+    """Admin/demo: permanently delete an alert."""
     alert = db.get(Alert, alert_id)
     if alert is None:
         raise HTTPException(status_code=404, detail="Alert not found.")
-    alert.is_active = False
+    db.delete(alert)
+    db.commit()
+
+
+@router.delete(
+    "/api/alerts",
+    status_code=204,
+    dependencies=[Depends(require_admin)],
+)
+def clear_alerts(db: Session = Depends(get_db)) -> None:
+    """Admin/demo: delete ALL alerts (danger)."""
+    db.execute(delete(Alert))
     db.commit()

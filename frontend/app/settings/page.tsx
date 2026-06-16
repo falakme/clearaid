@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect } from "react";
-import { ArrowLeft, Trash2 } from "lucide-react";
+import { ArrowLeft, Radio, Trash2 } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -66,6 +66,13 @@ export default function SettingsPage() {
           <Trash2 className="h-5 w-5" /> Clear all local data
         </Button>
       </Card>
+
+      <Link
+        href="/admin"
+        className="mt-5 flex min-h-tap items-center justify-center gap-2 rounded-md text-base font-semibold text-muted-foreground hover:text-primary"
+      >
+        <Radio className="h-5 w-5" /> Open admin console (demo)
+      </Link>
     </main>
   );
 }

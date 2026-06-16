@@ -37,3 +37,13 @@ def seed() -> None:
         db.commit()
     finally:
         db.close()
+
+
+def insert_demo_alerts(db) -> int:
+    """Insert the demo alert set into the given session. Returns count added."""
+    count = 0
+    for data in SEED_ALERTS:
+        db.add(Alert(**data))
+        count += 1
+    db.commit()
+    return count
