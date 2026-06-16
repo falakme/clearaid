@@ -47,7 +47,7 @@ def send_city_push(
     alert_title: str,
     severity: str = "info",
     status: str = "active",
-    url: str = "/emergency",
+    url: str = "/home",
 ) -> int:
     """Send a push to every subscription registered for `city`.
 

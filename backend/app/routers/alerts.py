@@ -109,7 +109,6 @@ def create_alert(
             alert_title=alert.title,
             severity=alert.severity,
             status=alert.status,
-            url="/emergency",
         )
     return alert
 
@@ -160,7 +159,6 @@ def update_alert(
             alert_title=alert.title,
             severity=alert.severity,
             status=alert.status,
-            url="/emergency",
         )
     return alert
 

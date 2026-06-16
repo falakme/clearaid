@@ -12,8 +12,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <ClerkProvider
       signInUrl="/signin"
       signUpUrl="/signup"
-      signInFallbackRedirectUrl="/dashboard"
-      signUpFallbackRedirectUrl="/dashboard"
+      signInFallbackRedirectUrl="/home"
+      signUpFallbackRedirectUrl="/home"
     >
       {children}
     </ClerkProvider>

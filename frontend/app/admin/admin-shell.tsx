@@ -29,7 +29,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           </Badge>
         </div>
         <Link
-          href="/dashboard"
+          href="/home"
           className="flex min-h-tap items-center gap-1 rounded-md px-2 text-base font-semibold text-muted-foreground hover:text-primary"
         >
           <ArrowLeft className="h-5 w-5" /> Exit to app

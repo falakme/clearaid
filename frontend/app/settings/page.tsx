@@ -25,9 +25,9 @@ export default function SettingsPage() {
   return (
     <main className="mx-auto max-w-2xl px-5 py-8">
       <header className="flex items-center justify-between">
-        <Brand href="/dashboard" />
+        <Brand href="/home" />
         <Link
-          href="/dashboard"
+          href="/home"
           className="flex min-h-tap items-center gap-1 rounded-md px-2 font-semibold text-muted-foreground hover:text-primary"
         >
           <ArrowLeft className="h-5 w-5" /> Back

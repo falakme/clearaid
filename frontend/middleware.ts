@@ -10,7 +10,8 @@ const enabled = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
 // Strictly protected surfaces.
 const isAdminRoute = createRouteMatcher(["/admin(.*)"]);
 const isErRoute = createRouteMatcher(["/er-dashboard(.*)"]);
-const isDashboardRoute = createRouteMatcher(["/dashboard(.*)"]);
+// /dashboard and /home are the standard user surfaces (admins get bounced off both).
+const isUserSurface = createRouteMatcher(["/dashboard(.*)", "/home(.*)"]);
 // The landing/intake screen — returning authenticated users skip it.
 const isRootRoute = createRouteMatcher(["/"]);
 
@@ -25,13 +26,13 @@ function toSignIn(req: Request) {
  * Resolve the home destination for an authenticated user by role:
  *   Admin (privateMetadata.admin) -> /admin
  *   ER team (er_teams DB record)  -> /er-dashboard
- *   Standard authenticated user   -> /dashboard
+ *   Standard authenticated user   -> /home
  */
 async function destinationForUser(userId: string, req: Request): Promise<URL> {
   if (await isAdminUser(userId)) return new URL("/admin", req.url);
   const team = await getErTeamForUser(userId);
   if (team) return new URL("/er-dashboard", req.url);
-  return new URL("/dashboard", req.url);
+  return new URL("/home", req.url);
 }
 
 const handler = clerkMiddleware(async (auth, req) => {
@@ -56,8 +57,8 @@ const handler = clerkMiddleware(async (auth, req) => {
     return NextResponse.next();
   }
 
-  // 3) Admins landing on the standard dashboard are routed to the console.
-  if (isDashboardRoute(req) && userId && (await isAdminUser(userId))) {
+  // 3) Admins landing on any standard user surface are routed to the console.
+  if (isUserSurface(req) && userId && (await isAdminUser(userId))) {
     return NextResponse.redirect(new URL("/admin", req.url));
   }
 

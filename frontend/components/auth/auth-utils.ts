@@ -19,7 +19,7 @@ export function clerkErrorMessage(err: unknown): string {
  * (set by the middleware / protected layouts). Only same-origin paths are
  * honored; otherwise falls back to /dashboard.
  */
-export function useRedirectTarget(fallback = "/dashboard"): string {
+export function useRedirectTarget(fallback = "/home"): string {
   const [target, setTarget] = useState(fallback);
   useEffect(() => {
     const raw = new URLSearchParams(window.location.search).get("redirect_url");

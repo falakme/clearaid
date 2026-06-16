@@ -50,14 +50,14 @@ export default function OnboardingPage() {
     save(profile); // PRIVACY: written only to localStorage (no coordinates)
 
     if (emergency) {
-      // Scenario A — active emergency: bypass auth, go straight to intake.
-      router.replace("/emergency");
+      // Active emergency — bypass auth and go straight to the unified home.
+      router.replace("/home");
     } else if (CLERK_ENABLED) {
-      // Scenario B — everyday use: sign in, then land on the dashboard.
+      // Everyday use: sign in, then land on the unified home.
       router.replace("/signin");
     } else {
-      // Clerk not configured (demo) — go straight to the dashboard.
-      router.replace("/dashboard");
+      // Clerk not configured (demo) — go straight to the unified home.
+      router.replace("/home");
     }
   }
 
@@ -167,9 +167,7 @@ export default function OnboardingPage() {
                     variant="ghost"
                     size="lg"
                     className="mt-3 w-full"
-                    onClick={() =>
-                      CLERK_ENABLED ? router.replace("/signin") : router.replace("/dashboard")
-                    }
+                    onClick={() => router.replace("/home")}
                   >
                     Continue without location
                   </Button>
