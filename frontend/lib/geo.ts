@@ -69,7 +69,7 @@ const COUNTRY_SHORT: Record<string, string> = {
   GB: "UK",
 };
 
-function shortCountry(countryName: string, countryCode: string): string {
+export function shortCountry(countryName: string, countryCode: string): string {
   return COUNTRY_SHORT[countryCode?.toUpperCase()] ?? countryName;
 }
 

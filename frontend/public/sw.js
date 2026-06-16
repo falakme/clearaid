@@ -116,18 +116,34 @@ self.addEventListener("fetch", (event) => {
 });
 
 // --- Web Push ---
+// Map a severity/status flag to a colored icon if the payload didn't include
+// an explicit icon URL.
+function iconForFlag(severity, status) {
+  if (status === "resolved" || severity === "success") return "/icons/icon-green.svg";
+  if (severity === "warning" || severity === "emergency" || status === "emergency") {
+    return "/icons/icon-red.svg";
+  }
+  return "/icons/icon-blue.svg";
+}
+
 self.addEventListener("push", (event) => {
-  let data = { title: "ClearAid", body: "New aid may be available in your area.", url: "/emergency" };
+  let data = {
+    title: "ClearAid",
+    body: "New aid may be available in your area.",
+    url: "/emergency",
+  };
   try {
     if (event.data) data = { ...data, ...event.data.json() };
   } catch (e) {
     /* keep defaults */
   }
+  // Title is strictly "ClearAid"; the body carries the alert name.
+  const icon = data.icon || iconForFlag(data.severity, data.status);
   event.waitUntil(
-    self.registration.showNotification(data.title, {
+    self.registration.showNotification("ClearAid", {
       body: data.body,
-      icon: "/icons/icon-192.png",
-      badge: "/icons/icon-192.png",
+      icon: icon,
+      badge: icon,
       vibrate: [120, 60, 120],
       data: { url: data.url || "/emergency" },
     })

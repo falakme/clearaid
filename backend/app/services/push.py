@@ -25,11 +25,37 @@ def push_configured() -> bool:
     return bool(settings.vapid_public_key and settings.vapid_private_key)
 
 
-def send_city_push(db: Session, city: str, title: str, body: str, url: str = "/dashboard") -> int:
+def _icon_for(severity: str, status: str) -> str:
+    """Map an alert's severity/status to a colored notification icon.
+
+    info            -> blue info icon
+    warning/emergency -> red warning icon
+    resolved/success  -> green check icon
+    """
+    flag = (status or "").strip().lower()
+    sev = (severity or "").strip().lower()
+    if flag == "resolved" or sev == "success":
+        return "/icons/icon-green.svg"
+    if sev in ("warning", "emergency") or flag == "emergency":
+        return "/icons/icon-red.svg"
+    return "/icons/icon-blue.svg"
+
+
+def send_city_push(
+    db: Session,
+    city: str,
+    alert_title: str,
+    severity: str = "info",
+    status: str = "active",
+    url: str = "/emergency",
+) -> int:
     """Send a push to every subscription registered for `city`.
 
-    Returns the number of notifications successfully dispatched. Silently does
-    nothing if push isn't configured or the library isn't installed.
+    Payload format (per spec): the notification title is strictly "ClearAid"
+    and the body is the alert name. A severity/status-driven colored icon URL
+    is included so the Service Worker shows the right badge. Returns the number
+    of notifications dispatched; silently no-ops if push isn't configured or
+    the library isn't installed.
     """
     if not city or not push_configured():
         return 0
@@ -49,7 +75,16 @@ def send_city_push(db: Session, city: str, title: str, body: str, url: str = "/d
         ).all()
     )
 
-    payload = json.dumps({"title": title, "body": body, "url": url})
+    payload = json.dumps(
+        {
+            "title": "ClearAid",
+            "body": alert_title,
+            "severity": severity,
+            "status": status,
+            "icon": _icon_for(severity, status),
+            "url": url,
+        }
+    )
     vapid_claims = {"sub": settings.vapid_subject}
     sent = 0
     stale: list[str] = []

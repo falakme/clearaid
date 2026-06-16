@@ -102,12 +102,13 @@ def create_alert(
     db.refresh(alert)
 
     # Best-effort push to residents subscribed in this city.
-    if alert.is_active and alert.status == "active":
+    if alert.is_active:
         send_city_push(
             db,
             city=alert.city,
-            title=alert.title,
-            body=alert.message,
+            alert_title=alert.title,
+            severity=alert.severity,
+            status=alert.status,
             url="/emergency",
         )
     return alert
@@ -149,14 +150,16 @@ def update_alert(
     db.commit()
     db.refresh(alert)
 
-    # Notify residents on a meaningful, still-active content change.
-    notify_fields = {"title", "message", "is_active"}
-    if alert.is_active and alert.status == "active" and notify_fields & set(fields):
+    # Notify residents on a meaningful change (content edit, (de)activation,
+    # or resolution -> recovery). The push icon reflects the new severity/status.
+    notify_fields = {"title", "message", "is_active", "status", "severity"}
+    if alert.is_active and notify_fields & set(fields):
         send_city_push(
             db,
             city=alert.city,
-            title=alert.title,
-            body=alert.message,
+            alert_title=alert.title,
+            severity=alert.severity,
+            status=alert.status,
             url="/emergency",
         )
     return alert
