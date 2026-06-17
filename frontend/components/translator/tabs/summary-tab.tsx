@@ -36,12 +36,12 @@ export function SummaryTab({ result }: { result: TranslateResult }) {
       <Item>
         <Card>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-primary">
+            <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary">
               <BookOpenText className="h-4 w-4" /> What this means
             </h2>
             <div className="flex items-center gap-2">
               <ConfidenceBadge score={result.ai_confidence_score} />
-              <ListenButton text={spoken} className="px-3 text-sm" />
+              <ListenButton text={spoken} className="px-3 text-xs" />
             </div>
           </div>
           <Markdown>{result.plain_language_explanation_markdown}</Markdown>

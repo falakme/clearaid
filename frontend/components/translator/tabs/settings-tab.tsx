@@ -16,8 +16,8 @@ export function SettingsTab({ onReset }: { onReset: () => void }) {
     <Stagger className="space-y-5">
       <Item>
         <Card>
-          <h2 className="text-sm font-bold uppercase tracking-wide text-primary">This document</h2>
-          <p className="mb-4 mt-1 text-base text-muted-foreground">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-primary">This document</h2>
+          <p className="mb-4 mt-1 text-sm text-muted-foreground">
             Save a clean copy to keep or share, or start fresh with another letter.
           </p>
           <div className="space-y-3">
@@ -33,8 +33,8 @@ export function SettingsTab({ onReset }: { onReset: () => void }) {
 
       <Item>
         <Card>
-          <h2 className="text-sm font-bold uppercase tracking-wide text-primary">Your privacy</h2>
-          <p className="mb-4 mt-1 text-base text-muted-foreground">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-primary">Your privacy</h2>
+          <p className="mb-4 mt-1 text-sm text-muted-foreground">
             We store nothing on our servers. The only thing saved on this device is your
             checklist progress, and you can wipe it instantly.
           </p>

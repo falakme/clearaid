@@ -11,10 +11,11 @@ interface CheckboxProps {
   id?: string;
   label: React.ReactNode;
   className?: string;
+  labelClassName?: string;
 }
 
 /** Large, accessible checkbox with a 48px tap target for stressed users. */
-export function Checkbox({ checked, onCheckedChange, id, label, className }: CheckboxProps) {
+export function Checkbox({ checked, onCheckedChange, id, label, className, labelClassName }: CheckboxProps) {
   return (
     <label
       htmlFor={id}
@@ -53,7 +54,7 @@ export function Checkbox({ checked, onCheckedChange, id, label, className }: Che
           )}
         </AnimatePresence>
       </motion.button>
-      <span className={cn("text-lg transition-colors", checked && "text-muted-foreground line-through")}>
+      <span className={cn("text-lg transition-colors", checked && "text-muted-foreground line-through", labelClassName)}>
         {label}
       </span>
     </label>

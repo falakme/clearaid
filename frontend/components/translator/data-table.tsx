@@ -22,7 +22,7 @@ export function DataTable({ data }: { data: TableData }) {
 
   return (
     <Card>
-      <h2 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-primary">
+      <h2 className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary">
         <Table2 className="h-4 w-4" /> Breakdown
       </h2>
       <Table>

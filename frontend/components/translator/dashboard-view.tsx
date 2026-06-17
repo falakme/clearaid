@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Printer, RotateCcw } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { Button } from "@/components/ui/button";
-import { LanguageSelect } from "@/components/language-select";
+import { LanguageMenu } from "@/components/language-menu";
 import type { TranslateResult } from "@/lib/types";
 import { BottomNav, SideNav, type TabKey } from "./bottom-nav";
 import { UrgencyPill } from "./tabs/shared";
@@ -85,16 +85,16 @@ export function DashboardView({
 
       {/* Main column */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between gap-2 px-4 py-3 lg:px-8 lg:py-5">
+        <header className="flex w-full items-center justify-between gap-2 px-4 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] lg:px-8 lg:py-4">
           <div className="flex min-w-0 items-center gap-3">
             <Brand href="/" className="lg:hidden" />
-            <h1 className="hidden text-2xl font-extrabold tracking-tight lg:block">
+            <h1 className="hidden text-lg font-bold tracking-tight lg:block">
               {TAB_TITLE[activeTab]}
             </h1>
             <UrgencyPill tier={result.urgency_tier} className="hidden sm:inline-flex lg:ml-1" />
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <LanguageSelect value={language} onChange={onLanguageChange} busy={refreshing} />
+            <LanguageMenu value={language} onChange={onLanguageChange} busy={refreshing} />
             <button
               type="button"
               onClick={print}
