@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ChevronDown,
   FlaskConical,
   Globe,
-  Mic,
   Paperclip,
   ScanText,
   ShieldCheck,
@@ -15,17 +14,22 @@ import {
 import { Brand } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
 import { LanguageSelect } from "@/components/language-select";
-import { VoiceMode } from "@/components/voice-mode";
 import { DEMO_DOCS, type DemoDoc } from "@/lib/demo-docs";
+import { createTranslator, isRTL, speechLocale } from "@/lib/i18n";
 import { FileIntake } from "./file-intake";
+import { SmartInput } from "./smart-input";
 
 /**
  * State 0 — the start screen. Fills the viewport. A language selector sits at
- * the top; Judge Demo Mode is a collapsible, swipeable carousel. On desktop the
- * pitch and the input form sit side by side; on phones they stack. Tapping the
- * mic opens an immersive voice mode. Inputs are controlled by the orchestrator.
+ * the top and re-renders the entire interface offline in the chosen language
+ * (RTL-aware). Judge Demo Mode is a collapsible, swipeable carousel. On desktop
+ * the pitch and the input form sit side by side; on phones they stack.
+ *
+ * The input itself is a Gemini-style <SmartInput>: it starts as two big
+ * buttons (keyboard / microphone), and morphs into a textarea or an immersive
+ * inline voice panel depending on the choice. Inputs are controlled by the
+ * orchestrator.
  */
 export function IntakeView({
   text,
@@ -51,23 +55,20 @@ export function IntakeView({
   onLoadDemo: (doc: DemoDoc) => void;
 }) {
   const [demoOpen, setDemoOpen] = useState(true);
-  const [voiceOpen, setVoiceOpen] = useState(false);
-  const [voiceSupported, setVoiceSupported] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    setVoiceSupported(!!SR);
-  }, []);
+  const t = createTranslator(language);
+  const rtl = isRTL(language);
 
   const trust = [
-    { icon: ScanText, label: "Reads PDFs & photos" },
-    { icon: Globe, label: "13 languages + read-aloud" },
-    { icon: ShieldCheck, label: "Nothing stored on our servers" },
+    { icon: ScanText, label: t("trust_docs") },
+    { icon: Globe, label: t("trust_langs") },
+    { icon: ShieldCheck, label: t("trust_private") },
   ];
 
   return (
-    <main className="mx-auto flex min-h-[100dvh] max-w-screen-lg flex-col px-5 py-6 lg:px-8 lg:py-8">
+    <main
+      dir={rtl ? "rtl" : "ltr"}
+      className="mx-auto flex min-h-[100dvh] max-w-screen-lg flex-col px-5 py-6 lg:px-8 lg:py-8"
+    >
       <header className="flex items-center justify-between gap-3">
         <Brand href="/" />
         <LanguageSelect value={language} onChange={onLanguageChange} />
@@ -82,7 +83,7 @@ export function IntakeView({
           className="flex w-full items-center justify-between gap-2 px-4 py-3 text-primary"
         >
           <span className="flex items-center gap-2 text-sm font-extrabold uppercase tracking-wide">
-            <FlaskConical className="h-4 w-4" /> Judge demo mode
+            <FlaskConical className="h-4 w-4" /> {t("demo_title")}
           </span>
           <ChevronDown
             className={"h-5 w-5 transition-transform " + (demoOpen ? "rotate-180" : "")}
@@ -97,9 +98,7 @@ export function IntakeView({
               transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
               className="overflow-hidden"
             >
-              <p className="px-4 text-sm text-muted-foreground">
-                One tap loads a real-world document and runs the whole pipeline.
-              </p>
+              <p className="px-4 text-sm text-muted-foreground">{t("demo_subtitle")}</p>
               <div className="no-scrollbar flex snap-x gap-2 overflow-x-auto px-4 pb-4 pt-3">
                 {DEMO_DOCS.map((doc) => (
                   <button
@@ -107,7 +106,7 @@ export function IntakeView({
                     type="button"
                     onClick={() => onLoadDemo(doc)}
                     title={doc.caption}
-                    className="flex min-w-[9rem] shrink-0 snap-start flex-col gap-1 rounded-lg border border-white/70 bg-card p-3 text-left shadow-clay-sm transition-all hover:brightness-[1.02] active:translate-y-0.5"
+                    className="flex min-w-[9rem] shrink-0 snap-start flex-col gap-1 rounded-lg border border-white/70 bg-card p-3 text-start shadow-clay-sm transition-all hover:brightness-[1.02] active:translate-y-0.5"
                   >
                     <span className="text-sm font-bold text-foreground">{doc.label}</span>
                     <span className="text-xs leading-snug text-muted-foreground">
@@ -125,14 +124,11 @@ export function IntakeView({
       <div className="mt-8 lg:grid lg:grid-cols-2 lg:items-start lg:gap-12">
         {/* Pitch */}
         <div className="lg:pt-6">
-          <p className="text-base font-semibold text-primary">Free · Private · Plain language</p>
+          <p className="text-base font-semibold text-primary">{t("tagline")}</p>
           <h1 className="mt-2 text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl">
-            Understand any confusing letter in seconds.
+            {t("headline")}
           </h1>
-          <p className="mt-3 text-lg text-muted-foreground">
-            Paste the text, snap a photo, or just talk. ClearAid explains it in plain
-            language, lays out exactly what to do, and points you to trusted local help.
-          </p>
+          <p className="mt-3 text-lg text-muted-foreground">{t("subhead")}</p>
 
           <ul className="mt-6 hidden gap-3 lg:grid">
             {trust.map(({ icon: Icon, label }) => (
@@ -148,31 +144,19 @@ export function IntakeView({
 
         {/* Input form */}
         <Card className="mt-7 lg:mt-0">
-          <div className="relative">
-            <Textarea
-              rows={6}
-              value={text}
-              onChange={(e) => onTextChange(e.target.value)}
-              placeholder="Tell us what's going on, for example: 'I got this letter and I don't understand the deadline.' Or paste the notice, bill, or form here."
-              aria-label="Describe what you need help with"
-            />
-            {voiceSupported && (
-              <button
-                type="button"
-                onClick={() => setVoiceOpen(true)}
-                aria-label="Speak instead of typing"
-                className="absolute bottom-3 right-3 flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-clay-sm transition-all active:translate-y-0.5"
-              >
-                <Mic className="h-5 w-5" />
-              </button>
-            )}
-          </div>
+          <SmartInput
+            text={text}
+            onTextChange={onTextChange}
+            t={t}
+            speechLang={speechLocale(language)}
+            rtl={rtl}
+          />
 
           <div className="mt-5">
             <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
-              <Paperclip className="h-4 w-4" /> Add a document (optional)
+              <Paperclip className="h-4 w-4" /> {t("add_document")}
             </div>
-            <FileIntake file={file} onFile={onFileChange} />
+            <FileIntake file={file} onFile={onFileChange} t={t} />
           </div>
 
           <AnimatePresence>
@@ -189,25 +173,16 @@ export function IntakeView({
           </AnimatePresence>
 
           <Button size="lg" className="mt-6 w-full" onClick={onSubmit} disabled={!canSubmit}>
-            <Wand2 className="h-5 w-5" /> Explain this for me
+            <Wand2 className="h-5 w-5" /> {t("submit")}
           </Button>
         </Card>
       </div>
 
       <p className="mt-auto pt-8 text-center text-sm text-muted-foreground">
         <span className="flex items-center justify-center gap-1.5">
-          <ShieldCheck className="h-4 w-4" /> Private by design. ClearAid never files or
-          submits anything for you.
+          <ShieldCheck className="h-4 w-4" /> {t("footer")}
         </span>
       </p>
-
-      <VoiceMode
-        open={voiceOpen}
-        onClose={() => setVoiceOpen(false)}
-        onComplete={(spoken) => {
-          if (spoken) onTextChange(text ? `${text} ${spoken}` : spoken);
-        }}
-      />
     </main>
   );
 }
