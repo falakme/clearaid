@@ -23,21 +23,20 @@ interface Props {
 /**
  * Top-level orchestrator for the two-state PWA.
  *
- *   State 0 (input/error) -> <IntakeView>      full-viewport intake screen
- *   State 1 (result)      -> <DashboardView>   tabbed mobile dashboard
+ *   State 0 (input/error) -> <IntakeView>      full-viewport start screen
+ *   State 1 (result)      -> <DashboardView>   tabbed dashboard
  *   (loading)             -> a calming skeleton between the two
  *
- * It owns ALL shared, progress-bearing state — the translation result, ELI5 /
- * language controls, the checklist ticks (localStorage-backed), and the
+ * It owns ALL shared, progress-bearing state — the translation result, the
+ * output language, the checklist ticks (localStorage-backed), and the
  * Responsible-AI acknowledgement — and passes it down. Because this state lives
  * above the tab router, switching dashboard tabs never wipes the user's
- * progress (requirement 4).
+ * progress.
  */
 export function TranslatorApp({ docType: docTypeProp = "general", storageKey = "home" }: Props) {
   // Intake inputs.
   const [file, setFile] = useState<File | null>(null);
   const [text, setText] = useState("");
-  const [location, setLocation] = useState("");
   const [docType, setDocType] = useState<"emergency" | "general">(docTypeProp);
 
   // Pipeline state.
@@ -49,7 +48,6 @@ export function TranslatorApp({ docType: docTypeProp = "general", storageKey = "
   const runIdRef = useRef(0);
 
   // Lifted UI controls / progress.
-  const [eli5, setEli5] = useState(false);
   const [language, setLanguage] = useState("English");
   const [acknowledged, setAcknowledged] = useState(false);
   const [checkedTasks, setCheckedTasks] = useLocalStorage<Record<string, boolean>>(
@@ -61,12 +59,10 @@ export function TranslatorApp({ docType: docTypeProp = "general", storageKey = "
 
   const runTranslate = useCallback(
     async (opts?: {
-      eli5?: boolean;
       language?: string;
       text?: string;
       file?: File | null;
       docType?: "emergency" | "general";
-      location?: string;
       /** In-dashboard re-fetch (control change) — stay on the dashboard. */
       refresh?: boolean;
     }) => {
@@ -75,7 +71,6 @@ export function TranslatorApp({ docType: docTypeProp = "general", storageKey = "
       if (!submitFile && submitText.trim().length === 0) return;
 
       const runId = ++runIdRef.current;
-      const submitLocation = opts?.location ?? location;
       const isRefresh = !!opts?.refresh && result !== null;
 
       setError("");
@@ -91,7 +86,6 @@ export function TranslatorApp({ docType: docTypeProp = "general", storageKey = "
           text: submitText,
           file: submitFile,
           docType: opts?.docType ?? docType,
-          eli5: opts?.eli5 ?? eli5,
           language: opts?.language ?? language,
         });
         if (runId !== runIdRef.current) return; // superseded by a newer run
@@ -105,11 +99,11 @@ export function TranslatorApp({ docType: docTypeProp = "general", storageKey = "
           setPhase("result");
 
           // Fire-and-forget the agentic recommendation; merge it in when ready.
+          // Location is taken from whatever the model detected in the document.
           setRecLoading(true);
           recommend({
             document_category: res.document_category,
             plain_language_brief: res.plain_language_brief,
-            location: submitLocation,
             detected_location: res.detected_location,
           })
             .then((rec) => {
@@ -142,14 +136,10 @@ export function TranslatorApp({ docType: docTypeProp = "general", storageKey = "
         if (runId === runIdRef.current && isRefresh) setRefreshing(false);
       }
     },
-    [file, text, location, docType, eli5, language, result, setCheckedTasks],
+    [file, text, docType, language, result, setCheckedTasks],
   );
 
-  // ELI5 / language: change re-fetches in place while on the dashboard.
-  function handleEli5(next: boolean) {
-    setEli5(next);
-    if (phase === "result") runTranslate({ eli5: next, refresh: true });
-  }
+  // Output language: changing it re-translates in place while on the dashboard.
   function handleLanguage(next: string) {
     setLanguage(next);
     if (phase === "result") runTranslate({ language: next, refresh: true });
@@ -162,9 +152,8 @@ export function TranslatorApp({ docType: docTypeProp = "general", storageKey = "
   function handleLoadDemo(doc: DemoDoc) {
     setFile(null);
     setText(doc.text);
-    setLocation("");
     setDocType(doc.docType);
-    runTranslate({ text: doc.text, file: null, docType: doc.docType, location: "" });
+    runTranslate({ text: doc.text, file: null, docType: doc.docType });
   }
 
   function handleReset() {
@@ -205,9 +194,7 @@ export function TranslatorApp({ docType: docTypeProp = "general", storageKey = "
               result={result}
               recommendationLoading={recLoading}
               refreshing={refreshing}
-              eli5={eli5}
               language={language}
-              onEli5Change={handleEli5}
               onLanguageChange={handleLanguage}
               checked={checkedTasks}
               onToggleTask={handleToggleTask}
@@ -227,8 +214,8 @@ export function TranslatorApp({ docType: docTypeProp = "general", storageKey = "
               onTextChange={setText}
               file={file}
               onFileChange={setFile}
-              location={location}
-              onLocationChange={setLocation}
+              language={language}
+              onLanguageChange={handleLanguage}
               canSubmit={canSubmit}
               error={error}
               onSubmit={() => runTranslate()}

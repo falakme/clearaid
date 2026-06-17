@@ -71,6 +71,15 @@
     background-color: rgb(var(--color-primary) / 0.25);
     border-radius: 9999px;
   }
+
+  /* Hide the scrollbar entirely (e.g. the swipeable demo carousel). */
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 @layer components {

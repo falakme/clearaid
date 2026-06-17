@@ -97,8 +97,9 @@ export function ResourcesTab({
               <BadgeCheck className="h-4 w-4" /> Verified local support
             </h2>
             <p className="text-base text-muted-foreground">
-              No specific local organization came up for this one. Add your city or state
-              on the start screen and we&apos;ll look again.
+              We couldn&apos;t pin down a specific local organization for this one. The
+              steps in your plan still apply, and 211.org or your local legal aid or
+              benefits office can point you to help nearby.
             </p>
           </Card>
         )}

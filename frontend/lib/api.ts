@@ -44,12 +44,8 @@ export interface TranslateInput {
   /** Uploaded PDF or image (OCR'd server-side). */
   file?: File | null;
   docType?: string;
-  /** Append an "explain like I'm 5" instruction to the AI prompt. */
-  eli5?: boolean;
   /** Translate the output values into this language (e.g. "Spanish"). */
   language?: string;
-  /** Optional location to scope the "Verified Local Support" recommendation. */
-  location?: string;
 }
 
 /**
@@ -63,7 +59,6 @@ export async function translateForm(input: TranslateInput): Promise<TranslateRes
   const form = new FormData();
   if (input.text && input.text.trim()) form.append("text", input.text.trim());
   form.append("doc_type", input.docType ?? "general");
-  if (input.eli5) form.append("eli5", "true");
   if (input.language && input.language.trim()) form.append("language", input.language.trim());
   if (input.file) form.append("file", input.file);
 

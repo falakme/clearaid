@@ -1,15 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ChevronDown,
   FlaskConical,
   Globe,
-  Lock,
-  MapPin,
   Mic,
-  MicOff,
   Paperclip,
   ScanText,
   ShieldCheck,
@@ -19,22 +16,24 @@ import { Brand } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { LanguageSelect } from "@/components/language-select";
+import { VoiceMode } from "@/components/voice-mode";
 import { DEMO_DOCS, type DemoDoc } from "@/lib/demo-docs";
 import { FileIntake } from "./file-intake";
 
 /**
- * State 0 — the start screen. Fills the viewport. Judge Demo Mode is a
- * collapsible, swipeable carousel at the top. On desktop the pitch and the
- * input form sit side by side; on phones they stack. Inputs are controlled by
- * the orchestrator.
+ * State 0 — the start screen. Fills the viewport. A language selector sits at
+ * the top; Judge Demo Mode is a collapsible, swipeable carousel. On desktop the
+ * pitch and the input form sit side by side; on phones they stack. Tapping the
+ * mic opens an immersive voice mode. Inputs are controlled by the orchestrator.
  */
 export function IntakeView({
   text,
   onTextChange,
   file,
   onFileChange,
-  location,
-  onLocationChange,
+  language,
+  onLanguageChange,
   canSubmit,
   error,
   onSubmit,
@@ -44,18 +43,15 @@ export function IntakeView({
   onTextChange: (v: string) => void;
   file: File | null;
   onFileChange: (f: File | null) => void;
-  location: string;
-  onLocationChange: (v: string) => void;
+  language: string;
+  onLanguageChange: (v: string) => void;
   canSubmit: boolean;
   error: string;
   onSubmit: () => void;
   onLoadDemo: (doc: DemoDoc) => void;
 }) {
   const [demoOpen, setDemoOpen] = useState(true);
-
-  // --- Voice intake (Web Speech API) ---
-  const [listening, setListening] = useState(false);
-  const recognitionRef = useRef<any>(null);
+  const [voiceOpen, setVoiceOpen] = useState(false);
   const [voiceSupported, setVoiceSupported] = useState(false);
 
   useEffect(() => {
@@ -63,31 +59,6 @@ export function IntakeView({
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     setVoiceSupported(!!SR);
   }, []);
-
-  function toggleVoice() {
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) return;
-    if (listening) {
-      recognitionRef.current?.stop();
-      return;
-    }
-    const recognition = new SR();
-    recognition.lang = "en-US";
-    recognition.interimResults = false;
-    recognition.continuous = false;
-    recognition.onresult = (event: any) => {
-      const transcript = Array.from(event.results)
-        .map((r: any) => r[0]?.transcript ?? "")
-        .join(" ")
-        .trim();
-      if (transcript) onTextChange((text ? text + " " : "") + transcript);
-    };
-    recognition.onend = () => setListening(false);
-    recognition.onerror = () => setListening(false);
-    recognitionRef.current = recognition;
-    setListening(true);
-    recognition.start();
-  }
 
   const trust = [
     { icon: ScanText, label: "Reads PDFs & photos" },
@@ -97,11 +68,9 @@ export function IntakeView({
 
   return (
     <main className="mx-auto flex min-h-[100dvh] max-w-screen-lg flex-col px-5 py-6 lg:px-8 lg:py-8">
-      <header className="flex items-center justify-between">
+      <header className="flex items-center justify-between gap-3">
         <Brand href="/" />
-        <span className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
-          <Lock className="h-4 w-4" /> No sign-in needed
-        </span>
+        <LanguageSelect value={language} onChange={onLanguageChange} />
       </header>
 
       {/* Judge Demo Mode — collapsible, swipeable carousel */}
@@ -131,7 +100,7 @@ export function IntakeView({
               <p className="px-4 text-sm text-muted-foreground">
                 One tap loads a real-world document and runs the whole pipeline.
               </p>
-              <div className="flex snap-x gap-2 overflow-x-auto px-4 pb-4 pt-3">
+              <div className="no-scrollbar flex snap-x gap-2 overflow-x-auto px-4 pb-4 pt-3">
                 {DEMO_DOCS.map((doc) => (
                   <button
                     key={doc.key}
@@ -156,14 +125,13 @@ export function IntakeView({
       <div className="mt-8 lg:grid lg:grid-cols-2 lg:items-start lg:gap-12">
         {/* Pitch */}
         <div className="lg:pt-6">
-          <p className="text-base font-semibold text-primary">Free · Private · No sign-in</p>
+          <p className="text-base font-semibold text-primary">Free · Private · Plain language</p>
           <h1 className="mt-2 text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl">
             Understand any confusing letter in seconds.
           </h1>
           <p className="mt-3 text-lg text-muted-foreground">
-            Paste the text, snap a photo, or just describe what happened. ClearAid explains
-            it in plain language, lays out exactly what to do, and points you to trusted
-            local help.
+            Paste the text, snap a photo, or just talk. ClearAid explains it in plain
+            language, lays out exactly what to do, and points you to trusted local help.
           </p>
 
           <ul className="mt-6 hidden gap-3 lg:grid">
@@ -191,32 +159,14 @@ export function IntakeView({
             {voiceSupported && (
               <button
                 type="button"
-                onClick={toggleVoice}
-                aria-label={listening ? "Stop dictation" : "Dictate with your voice"}
-                aria-pressed={listening}
-                className={
-                  "absolute bottom-3 right-3 flex h-11 w-11 items-center justify-center rounded-full shadow-clay-sm transition-all " +
-                  (listening
-                    ? "animate-pulse bg-primary text-primary-foreground"
-                    : "bg-card text-primary")
-                }
+                onClick={() => setVoiceOpen(true)}
+                aria-label="Speak instead of typing"
+                className="absolute bottom-3 right-3 flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-clay-sm transition-all active:translate-y-0.5"
               >
-                {listening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                <Mic className="h-5 w-5" />
               </button>
             )}
           </div>
-
-          <label className="mt-4 flex min-h-tap items-center gap-2 rounded-md bg-card px-3 text-base font-semibold shadow-clay-sm">
-            <MapPin className="h-5 w-5 shrink-0 text-primary" />
-            <input
-              type="text"
-              value={location}
-              onChange={(e) => onLocationChange(e.target.value)}
-              placeholder="Your city or state (optional)"
-              aria-label="Your location (optional)"
-              className="w-full bg-transparent py-2 font-medium outline-none placeholder:font-normal placeholder:text-muted-foreground"
-            />
-          </label>
 
           <div className="mt-5">
             <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
@@ -250,6 +200,14 @@ export function IntakeView({
           submits anything for you.
         </span>
       </p>
+
+      <VoiceMode
+        open={voiceOpen}
+        onClose={() => setVoiceOpen(false)}
+        onComplete={(spoken) => {
+          if (spoken) onTextChange(text ? `${text} ${spoken}` : spoken);
+        }}
+      />
     </main>
   );
 }

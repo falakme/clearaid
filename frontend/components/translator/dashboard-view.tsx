@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Printer, RotateCcw } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { Button } from "@/components/ui/button";
+import { LanguageSelect } from "@/components/language-select";
 import type { TranslateResult } from "@/lib/types";
 import { BottomNav, SideNav, type TabKey } from "./bottom-nav";
 import { UrgencyPill } from "./tabs/shared";
@@ -26,17 +27,16 @@ const TAB_TITLE: Record<TabKey, string> = {
  *   - desktop (lg+)    -> persistent left sidebar, wider content column, and
  *                         two-column tab layouts where they help.
  *
- * All progress-bearing state (checked tasks, acknowledgement, controls) is
- * owned by the orchestrator and passed in, so switching tabs never wipes
- * progress.
+ * The output-language selector lives up top in the header; changing it
+ * re-translates in place (`refreshing`). All progress-bearing state (checked
+ * tasks, acknowledgement) is owned by the orchestrator, so switching tabs never
+ * wipes progress.
  */
 export function DashboardView({
   result,
   recommendationLoading,
   refreshing,
-  eli5,
   language,
-  onEli5Change,
   onLanguageChange,
   checked,
   onToggleTask,
@@ -49,9 +49,7 @@ export function DashboardView({
   result: TranslateResult;
   recommendationLoading: boolean;
   refreshing: boolean;
-  eli5: boolean;
   language: string;
-  onEli5Change: (next: boolean) => void;
   onLanguageChange: (next: string) => void;
   checked: Record<string, boolean>;
   onToggleTask: (id: string, value: boolean) => void;
@@ -87,22 +85,25 @@ export function DashboardView({
 
       {/* Main column */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between gap-3 px-4 py-3 lg:px-8 lg:py-5">
-          <div className="flex items-center gap-3">
+        <header className="flex items-center justify-between gap-2 px-4 py-3 lg:px-8 lg:py-5">
+          <div className="flex min-w-0 items-center gap-3">
             <Brand href="/" className="lg:hidden" />
             <h1 className="hidden text-2xl font-extrabold tracking-tight lg:block">
               {TAB_TITLE[activeTab]}
             </h1>
             <UrgencyPill tier={result.urgency_tier} className="hidden sm:inline-flex lg:ml-1" />
           </div>
-          <button
-            type="button"
-            onClick={print}
-            aria-label="Print plan"
-            className="flex min-h-tap min-w-tap items-center justify-center rounded-md bg-card text-foreground shadow-clay-sm active:translate-y-0.5 lg:hidden"
-          >
-            <Printer className="h-5 w-5" />
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <LanguageSelect value={language} onChange={onLanguageChange} busy={refreshing} />
+            <button
+              type="button"
+              onClick={print}
+              aria-label="Print plan"
+              className="flex min-h-tap min-w-tap items-center justify-center rounded-md bg-card text-foreground shadow-clay-sm active:translate-y-0.5 lg:hidden"
+            >
+              <Printer className="h-5 w-5" />
+            </button>
+          </div>
         </header>
 
         <main className="scroll-clay flex-1 overflow-y-auto px-4 pb-32 pt-1 lg:px-8 lg:pb-10">
@@ -115,16 +116,7 @@ export function DashboardView({
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.18, ease: "easeOut" }}
               >
-                {activeTab === "summary" && (
-                  <SummaryTab
-                    result={result}
-                    eli5={eli5}
-                    language={language}
-                    onEli5Change={onEli5Change}
-                    onLanguageChange={onLanguageChange}
-                    refreshing={refreshing}
-                  />
-                )}
+                {activeTab === "summary" && <SummaryTab result={result} />}
                 {activeTab === "tasks" && (
                   <TasksTab
                     result={result}
