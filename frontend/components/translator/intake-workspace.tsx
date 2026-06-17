@@ -1,15 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Baby, FlaskConical, Languages, Mic, MicOff, Paperclip, Wand2 } from "lucide-react";
+import { Baby, Languages, MapPin, Mic, MicOff, Paperclip, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { phaseFade } from "@/lib/motion";
 import { translateForm, ApiError } from "@/lib/api";
 import { LANGUAGES } from "@/lib/languages";
-import { TEST_MODE, DEMO_DOCS } from "@/lib/test-mode";
 import type { TranslateResult } from "@/lib/types";
 import { FileIntake } from "./file-intake";
 import { TranslatorResult } from "./translator-result";
@@ -25,24 +31,38 @@ interface Props {
   accentClassName?: string;
 }
 
+/** Imperative API exposed to the Judge Demo Mode quick-load buttons. */
+export interface IntakeWorkspaceHandle {
+  /** Load text into the input and immediately run the full pipeline. */
+  loadAndRun: (text: string, docType?: "emergency" | "general") => void;
+}
+
 /**
- * Unified document-intake surface for /emergency and /dashboard.
+ * Unified document-intake surface.
  *
- * Controls: free-text area (+ voice dictation), drag-drop / camera upload,
- * an ELI5 toggle, an output-language selector, and (in TEST_MODE) synthetic
- * demo-document loaders. The typed context AND the uploaded document are sent
- * together to the backend; ELI5/language are forwarded to the AI prompt and
- * toggling them on the result re-fetches the translation.
+ * Controls: free-text area (+ voice dictation), drag-drop / camera upload, an
+ * optional location (scopes the Verified Local Support recommendation), an
+ * ELI5 toggle, and an output-language selector. The typed context AND the
+ * uploaded document are sent together to the backend; ELI5/language are
+ * forwarded to the AI prompt and toggling them on the result re-fetches.
+ *
+ * Parents can drive it imperatively via the `loadAndRun` ref method, which the
+ * Judge Demo Mode buttons use to auto-populate and auto-process a document.
  */
-export function IntakeWorkspace({
-  docType,
-  storageKey,
-  title = "What do you need help with today?",
-  subtitle = "Describe your situation in your own words, paste a letter or bill, or add a photo or PDF of a document. ClearAid reads it and explains it in plain language.",
-  accentClassName = "text-primary",
-}: Props) {
+export const IntakeWorkspace = forwardRef<IntakeWorkspaceHandle, Props>(function IntakeWorkspace(
+  {
+    docType: docTypeProp,
+    storageKey,
+    title = "What do you need help with today?",
+    subtitle = "Describe your situation in your own words, paste a letter or bill, or add a photo or PDF of a document. ClearAid reads it and explains it in plain language.",
+    accentClassName = "text-primary",
+  },
+  ref,
+) {
   const [file, setFile] = useState<File | null>(null);
   const [text, setText] = useState("");
+  const [location, setLocation] = useState("");
+  const [docType, setDocType] = useState<"emergency" | "general">(docTypeProp);
   const [phase, setPhase] = useState<Phase>("input");
   const [result, setResult] = useState<TranslateResult | null>(null);
   const [error, setError] = useState("");
@@ -90,17 +110,27 @@ export function IntakeWorkspace({
   const canSubmit = !!file || text.trim().length > 0;
 
   const runTranslate = useCallback(
-    async (opts?: { eli5?: boolean; language?: string }) => {
-      if (!file && text.trim().length === 0) return;
+    async (opts?: {
+      eli5?: boolean;
+      language?: string;
+      text?: string;
+      file?: File | null;
+      docType?: "emergency" | "general";
+      location?: string;
+    }) => {
+      const submitText = opts?.text ?? text;
+      const submitFile = opts?.file !== undefined ? opts.file : file;
+      if (!submitFile && submitText.trim().length === 0) return;
       setPhase("loading");
       setError("");
       try {
         const res = await translateForm({
-          text,
-          file,
-          docType,
+          text: submitText,
+          file: submitFile,
+          docType: opts?.docType ?? docType,
           eli5: opts?.eli5 ?? eli5,
           language: opts?.language ?? language,
+          location: opts?.location ?? location,
         });
         setResult(res);
         setPhase("result");
@@ -119,7 +149,24 @@ export function IntakeWorkspace({
         setPhase("error");
       }
     },
-    [file, text, docType, eli5, language],
+    [file, text, docType, eli5, language, location],
+  );
+
+  // Judge Demo Mode entry point: load synthetic text and process immediately.
+  useImperativeHandle(
+    ref,
+    () => ({
+      loadAndRun: (demoText: string, demoDocType?: "emergency" | "general") => {
+        setFile(null);
+        setText(demoText);
+        if (demoDocType) setDocType(demoDocType);
+        if (typeof window !== "undefined") {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+        runTranslate({ text: demoText, file: null, docType: demoDocType });
+      },
+    }),
+    [runTranslate],
   );
 
   // Toggling ELI5 / changing language on the result RE-FETCHES the translation.
@@ -205,29 +252,6 @@ export function IntakeWorkspace({
             </h2>
             <p className="mt-2 text-base text-muted-foreground sm:text-lg">{subtitle}</p>
 
-            {TEST_MODE && (
-              <div className="mt-4 rounded-md border border-dashed border-primary/40 bg-primary/5 p-3">
-                <p className="mb-2 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-primary">
-                  <FlaskConical className="h-4 w-4" /> Demo documents (Test Mode)
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {DEMO_DOCS.map((d) => (
-                    <Button
-                      key={d.key}
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setFile(null);
-                        setText(d.text);
-                      }}
-                    >
-                      {d.label}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            )}
-
             <div className="relative mt-6">
               <Textarea
                 rows={6}
@@ -255,6 +279,18 @@ export function IntakeWorkspace({
             </div>
 
             <div className="mt-4">{controls}</div>
+
+            <label className="mt-4 flex min-h-tap items-center gap-2 rounded-md bg-card px-3 text-base font-semibold shadow-clay-sm">
+              <MapPin className="h-5 w-5 shrink-0 text-primary" />
+              <input
+                type="text"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="Your city/state (optional) — finds local support"
+                aria-label="Your location (optional)"
+                className="w-full bg-transparent py-2 font-medium outline-none placeholder:font-normal placeholder:text-muted-foreground"
+              />
+            </label>
 
             <div className="mt-5">
               <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
@@ -293,4 +329,4 @@ export function IntakeWorkspace({
       )}
     </AnimatePresence>
   );
-}
+});

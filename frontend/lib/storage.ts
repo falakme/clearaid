@@ -1,71 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { UserProfile } from "./types";
 
 /**
- * PRIVACY SAFEGUARD: all user profile data lives ONLY in the browser's
- * localStorage. It is never sent to or stored by the backend.
+ * PRIVACY SAFEGUARD: any local state ClearAid keeps (e.g. checklist progress)
+ * lives ONLY in the browser's localStorage. It is never sent to or stored by
+ * the backend. The app itself is fully stateless.
  */
-const PROFILE_KEY = "clearaid.profile";
-
-export function readProfile(): UserProfile | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(PROFILE_KEY);
-    return raw ? (JSON.parse(raw) as UserProfile) : null;
-  } catch {
-    return null;
-  }
-}
-
-export function writeProfile(profile: UserProfile): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
-  // Let other tabs/components react immediately.
-  window.dispatchEvent(new Event("clearaid:profile"));
-}
-
-export function clearProfile(): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.removeItem(PROFILE_KEY);
-  window.dispatchEvent(new Event("clearaid:profile"));
-}
-
-/** React hook bound to the locally-stored user profile. */
-export function useProfile() {
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    setProfile(readProfile());
-    setLoaded(true);
-
-    const sync = () => setProfile(readProfile());
-    window.addEventListener("clearaid:profile", sync);
-    window.addEventListener("storage", sync);
-    return () => {
-      window.removeEventListener("clearaid:profile", sync);
-      window.removeEventListener("storage", sync);
-    };
-  }, []);
-
-  const save = useCallback((next: UserProfile) => {
-    writeProfile(next);
-    setProfile(next);
-  }, []);
-
-  const reset = useCallback(() => {
-    clearProfile();
-    setProfile(null);
-  }, []);
-
-  return { profile, loaded, save, reset };
-}
 
 /**
  * Generic localStorage-backed state hook (used for checklist progress so a
- * user's checkbox ticks survive a refresh — again, never leaves the device).
+ * user's checkbox ticks survive a refresh — never leaves the device).
  */
 export function useLocalStorage<T>(key: string, initial: T) {
   const [value, setValue] = useState<T>(initial);

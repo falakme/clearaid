@@ -1,110 +1,9 @@
 """Pydantic schemas for request/response validation."""
 
-from datetime import datetime
-from typing import Optional
-
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 
-# --- Alerts ---
-class AlertBase(BaseModel):
-    # Area targeting (derived from coarse geolocation; non-PII).
-    city: str = Field(default="", max_length=120, examples=["Houston"])
-    region: str = Field(default="", max_length=120, examples=["Texas"])
-    country: str = Field(default="", max_length=120, examples=["USA"])
-    # Optional legacy ZIP targeting.
-    zip_code: str = Field(default="", max_length=16, examples=["77001"])
-    title: str = Field(..., max_length=200)
-    message: str
-    severity: str = Field(default="info", pattern="^(info|warning|success)$")
-    programs_open: int = Field(default=0, ge=0)
-    # Lifecycle: active (emergency) | resolved (recovery).
-    status: str = Field(default="active", pattern="^(active|resolved)$")
-
-
-class AlertCreate(AlertBase):
-    """Payload used by the admin demo panel to trigger an alert."""
-
-
-class AlertUpdate(BaseModel):
-    """Partial update for an alert (admin/ER). All fields optional."""
-
-    city: Optional[str] = Field(default=None, max_length=120)
-    region: Optional[str] = Field(default=None, max_length=120)
-    country: Optional[str] = Field(default=None, max_length=120)
-    zip_code: Optional[str] = Field(default=None, max_length=16)
-    title: Optional[str] = Field(default=None, max_length=200)
-    message: Optional[str] = None
-    severity: Optional[str] = Field(default=None, pattern="^(info|warning|success)$")
-    programs_open: Optional[int] = Field(default=None, ge=0)
-    is_active: Optional[bool] = None
-    status: Optional[str] = Field(default=None, pattern="^(active|resolved)$")
-
-
-class AlertOut(AlertBase):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    is_active: bool
-    created_at: datetime
-
-
-# --- ER Teams ---
-class ErTeamBase(BaseModel):
-    org_name: str = Field(..., max_length=160, examples=["Red Cross Dallas"])
-    assigned_city: str = Field(..., max_length=120, examples=["Dallas"])
-    region: str = Field(default="", max_length=120, examples=["Texas"])
-    country: str = Field(default="", max_length=120, examples=["USA"])
-    clerk_user_id: Optional[str] = Field(default=None, max_length=64)
-    is_active: bool = True
-
-
-class ErTeamCreate(ErTeamBase):
-    """Admin creates an ER team and assigns it a city."""
-
-
-class ErTeamUpdate(BaseModel):
-    org_name: Optional[str] = Field(default=None, max_length=160)
-    assigned_city: Optional[str] = Field(default=None, max_length=120)
-    region: Optional[str] = Field(default=None, max_length=120)
-    country: Optional[str] = Field(default=None, max_length=120)
-    clerk_user_id: Optional[str] = Field(default=None, max_length=64)
-    is_active: Optional[bool] = None
-
-
-class ErTeamOut(ErTeamBase):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    created_at: datetime
-
-
-# --- Web Push ---
-class PushKeys(BaseModel):
-    p256dh: str
-    auth: str
-
-
-class PushSubscriptionIn(BaseModel):
-    endpoint: str
-    keys: PushKeys
-    city: str = Field(default="", max_length=120)
-
-
-# --- Recommendations (Brave Search) ---
-class Recommendation(BaseModel):
-    title: str
-    url: str
-    description: str = ""
-
-
-class RecommendationsOut(BaseModel):
-    mode: str = "relief"  # relief | recovery
-    query: str = ""
-    results: list[Recommendation] = Field(default_factory=list)
-
-
-# --- Translate ---
+# --- Translate: structured sub-objects ---
 class TaskItem(BaseModel):
     """A single actionable step rendered in the interactive task list."""
 
@@ -127,20 +26,72 @@ class DiagramStep(BaseModel):
     description: str
 
 
-class TranslateResponse(BaseModel):
-    """Structured, multi-component output rendered by the Translator view.
+# --- Agentic recommendation (internal) ---
+class SearchResult(BaseModel):
+    """A raw Brave Search hit, passed to the AI evaluator for selection."""
 
-    The first four fields mirror the exact JSON schema the LLM is instructed
-    to return. `source_text` is attached by the backend (not the model) to
-    power the Source Transparency engine.
+    title: str
+    url: str
+    description: str = ""
+
+
+class VerifiedResource(BaseModel):
+    """The single trustworthy resource the AI selected from the search hits."""
+
+    recommended_resource_name: str = ""
+    recommended_resource_url: str = ""
+    ai_reasoning_for_recommendation: str = ""
+
+
+# --- Translate response ---
+URGENCY_TIERS = ("Urgent Action Required", "Time Sensitive", "Informational Only")
+
+
+class TranslateResponse(BaseModel):
+    """Structured, multi-capability output rendered by the Translator view.
+
+    Showcases explicit AI capabilities:
+      - Classification  -> urgency_tier, document_category
+      - Summarization   -> plain_language_brief
+      - Extraction      -> plain_language_explanation_markdown, task_list,
+                           table_data, diagram_steps
+      - Agentic RAG     -> recommended_resource_* (selected from live search)
+
+    `source_text` is attached by the backend (not the model) to power the
+    Source Transparency engine.
     """
 
+    # Classification.
+    urgency_tier: str = Field(
+        default="Informational Only",
+        description="One of: Urgent Action Required | Time Sensitive | Informational Only",
+    )
+    document_category: str = Field(
+        default="general",
+        description="Short machine label, e.g. eviction, medical, food_assistance.",
+    )
+
+    # Summarization.
+    plain_language_brief: str = ""
+
+    # Extraction.
     plain_language_explanation_markdown: str
     task_list: list[TaskItem] = Field(default_factory=list)
     table_data: TableData = Field(default_factory=TableData)
     diagram_steps: list[DiagramStep] = Field(default_factory=list)
-    # Model's self-reported confidence in the extraction: High | Medium | Low.
+
+    # Confidence (Responsible AI gateway).
     ai_confidence_score: str = Field(default="Medium", pattern="^(High|Medium|Low)$")
+    confidence_percent: int = Field(default=85, ge=0, le=100)
+
+    # Agentic resource recommendation ("Verified Local Support").
+    recommended_resource_name: str = ""
+    recommended_resource_url: str = ""
+    ai_reasoning_for_recommendation: str = ""
+
+    # Location the model detected in the document (drives the search query).
+    detected_location: str = ""
+
     # Backend-attached provenance (the exact extracted/source text).
     source_text: str = ""
 
@@ -151,4 +102,4 @@ class HealthResponse(BaseModel):
     version: str
     nvidia_configured: bool
     nvidia_model: str = ""
-    database_connected: bool = False
+    brave_configured: bool = False

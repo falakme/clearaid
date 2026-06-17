@@ -3,31 +3,78 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  AlertOctagon,
+  BadgeCheck,
   BookOpenText,
   ChevronDown,
+  Clock,
   ExternalLink,
   FileSearch,
+  Info,
   RotateCcw,
+  ShieldCheck,
   Share2,
+  Sparkles,
 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Markdown } from "@/components/ui/markdown";
 import { Item, Stagger } from "@/components/motion";
 import { stripEmoji } from "@/lib/text";
+import { cn } from "@/lib/utils";
 import { DataTable } from "./data-table";
 import { ProcessDiagram } from "./process-diagram";
 import { TaskList } from "./task-list";
-import type { TranslateResult } from "@/lib/types";
+import type { TranslateResult, UrgencyTier } from "@/lib/types";
 
 interface Props {
   result: TranslateResult;
   originalText: string;
   /** Stable key for persisting checklist progress to localStorage. */
   storageKey: string;
-  /** Optional "official site" link shown as a primary action. */
+  /** Optional "official site" link shown as a gated action. */
   officialUrl?: string;
   onReset: () => void;
+}
+
+/** Classification banner — color + icon driven by the AI's urgency tier. */
+const URGENCY_STYLE: Record<
+  UrgencyTier,
+  { wrap: string; icon: typeof AlertOctagon; label: string }
+> = {
+  "Urgent Action Required": {
+    wrap: "border-red-300 bg-red-50 text-red-800",
+    icon: AlertOctagon,
+    label: "Urgent action required",
+  },
+  "Time Sensitive": {
+    wrap: "border-amber-300 bg-amber-50 text-amber-900",
+    icon: Clock,
+    label: "Time sensitive",
+  },
+  "Informational Only": {
+    wrap: "border-primary/30 bg-primary/5 text-primary",
+    icon: Info,
+    label: "Informational only",
+  },
+};
+
+function UrgencyBanner({ tier, brief }: { tier: UrgencyTier; brief: string }) {
+  const style = URGENCY_STYLE[tier] ?? URGENCY_STYLE["Informational Only"];
+  const Icon = style.icon;
+  return (
+    <div className={cn("flex items-start gap-3 rounded-md border-2 p-4", style.wrap)}>
+      <Icon className="mt-0.5 h-6 w-6 shrink-0" />
+      <div>
+        <p className="text-xs font-bold uppercase tracking-wide opacity-80">
+          AI classification
+        </p>
+        <p className="text-lg font-extrabold leading-tight">{style.label}</p>
+        {brief && <p className="mt-1 text-base font-medium opacity-90">{brief}</p>}
+      </div>
+    </div>
+  );
 }
 
 /** Green/Yellow/Red badge for the AI's self-reported extraction confidence. */
@@ -64,7 +111,11 @@ export function TranslatorResult({
 }: Props) {
   const [showSource, setShowSource] = useState(false);
   const [shareMsg, setShareMsg] = useState("");
+  // Human-in-the-loop gate: external actions stay disabled until ticked.
+  const [acknowledged, setAcknowledged] = useState(false);
   const sourceText = result.source_text || originalText;
+
+  const hasResource = Boolean(result.recommended_resource_url);
 
   async function sharePlan() {
     const textToShare = buildShareText(result);
@@ -85,6 +136,11 @@ export function TranslatorResult({
 
   return (
     <Stagger className="space-y-5">
+      {/* 0. Classification banner (urgency tier + brief) */}
+      <Item>
+        <UrgencyBanner tier={result.urgency_tier} brief={result.plain_language_brief} />
+      </Item>
+
       {/* 1. Plain-language explanation (Markdown) */}
       <Item>
         <Card>
@@ -106,22 +162,38 @@ export function TranslatorResult({
       {/* 3. Interactive task list + progress (renders only when tasks exist) */}
       <Item>
         <TaskList tasks={result.task_list} storageKey={storageKey} />
-        {result.task_list.length > 0 && (
-          <div className="mt-3">
-            <Button variant="outline" className="w-full" onClick={sharePlan}>
-              <Share2 className="h-5 w-5" /> Share plan
-            </Button>
-            {shareMsg && (
-              <p className="mt-2 text-center text-sm text-emerald-700">{shareMsg}</p>
-            )}
-          </div>
-        )}
       </Item>
 
       {/* 4. Data table (renders only when headers exist) */}
       <Item>
         <DataTable data={result.table_data} />
       </Item>
+
+      {/* 5. Verified Local Support — agentic recommendation (AI-evaluated) */}
+      {hasResource && (
+        <Item>
+          <Card className="border-2 border-emerald-200 bg-emerald-50/40">
+            <h2 className="mb-1 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-emerald-700">
+              <BadgeCheck className="h-4 w-4" /> Verified Local Support
+            </h2>
+            <p className="text-lg font-extrabold text-foreground">
+              {result.recommended_resource_name || "Recommended resource"}
+            </p>
+            {result.ai_reasoning_for_recommendation && (
+              <p className="mt-2 flex items-start gap-2 rounded-md bg-card/70 p-3 text-base text-muted-foreground">
+                <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                <span>
+                  <span className="font-semibold text-emerald-700">AI reasoning: </span>
+                  {result.ai_reasoning_for_recommendation}
+                </span>
+              </p>
+            )}
+            <p className="mt-2 break-all text-sm text-muted-foreground">
+              {result.recommended_resource_url}
+            </p>
+          </Card>
+        </Item>
+      )}
 
       {/* Source transparency (Responsible AI) */}
       <Item>
@@ -161,19 +233,96 @@ export function TranslatorResult({
         </Card>
       </Item>
 
-      {/* Direct action + reset */}
-      {officialUrl && (
-        <Item>
-          <a
-            href={officialUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={buttonVariants({ size: "lg", className: "w-full" })}
-          >
-            <ExternalLink className="h-5 w-5" /> Go to official site
-          </a>
-        </Item>
-      )}
+      {/* Responsible AI & Human-in-the-Loop Safeguards (amber gateway) */}
+      <Item>
+        <div className="rounded-md border-2 border-amber-300 bg-amber-50/60 p-5">
+          <h2 className="flex items-center gap-2 text-base font-extrabold text-amber-900">
+            <ShieldCheck className="h-5 w-5" /> Responsible AI &amp; Human-in-the-Loop
+            Safeguards
+          </h2>
+
+          {/* Confidence indicator */}
+          <div className="mt-3 rounded-md bg-card/70 p-3">
+            <div className="flex items-center justify-between text-sm font-semibold text-amber-900">
+              <span>Confidence: {result.confidence_percent}% based on source text anchoring</span>
+              <span>{result.ai_confidence_score}</span>
+            </div>
+            <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-amber-200/70">
+              <div
+                className="h-full rounded-full bg-amber-500"
+                style={{ width: `${result.confidence_percent}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Mandatory human-in-the-loop acknowledgement */}
+          <div className="mt-4">
+            <Checkbox
+              id="hitl-ack"
+              checked={acknowledged}
+              onCheckedChange={setAcknowledged}
+              label="I verify that I will use this AI summary strictly as an organizational guide and understand that it does not provide official medical or legal decisions."
+            />
+          </div>
+
+          {/* Gated external actions — disabled until the box is ticked */}
+          <div className="mt-4 space-y-3">
+            {!acknowledged && (
+              <p className="text-sm font-medium text-amber-800">
+                Confirm the statement above to enable the actions below.
+              </p>
+            )}
+
+            {hasResource &&
+              (acknowledged ? (
+                <a
+                  href={result.recommended_resource_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={buttonVariants({ size: "lg", className: "w-full" })}
+                >
+                  <ExternalLink className="h-5 w-5" /> Open verified resource
+                </a>
+              ) : (
+                <Button size="lg" className="w-full" disabled>
+                  <ExternalLink className="h-5 w-5" /> Open verified resource
+                </Button>
+              ))}
+
+            {officialUrl &&
+              (acknowledged ? (
+                <a
+                  href={officialUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={buttonVariants({ size: "lg", variant: "outline", className: "w-full" })}
+                >
+                  <ExternalLink className="h-5 w-5" /> Go to official site
+                </a>
+              ) : (
+                <Button size="lg" variant="outline" className="w-full" disabled>
+                  <ExternalLink className="h-5 w-5" /> Go to official site
+                </Button>
+              ))}
+
+            {result.task_list.length > 0 && (
+              <>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={sharePlan}
+                  disabled={!acknowledged}
+                >
+                  <Share2 className="h-5 w-5" /> Share plan
+                </Button>
+                {shareMsg && (
+                  <p className="text-center text-sm text-emerald-700">{shareMsg}</p>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </Item>
 
       <Item>
         <Button variant="ghost" className="w-full" onClick={onReset}>

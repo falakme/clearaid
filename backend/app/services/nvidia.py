@@ -1,10 +1,17 @@
 """NVIDIA Build API integration for the Crisis-to-Action translator.
 
-Sends raw government form text to `google/gemma-3n-e4b-it` and parses a
-strict JSON checklist back out. The system prompt forbids markdown and
-preamble, but models are unreliable, so we defensively extract and repair
-the JSON, retry once with a corrective nudge, and always fail gracefully
-(never with an unhandled 500).
+Two distinct cognitive steps run against `google/gemma-3n-e4b-it`:
+
+1. translate_form()    — classify + summarize + extract a dense document into
+                         a strict, multi-capability JSON object.
+2. evaluate_resources() — the AI-evaluation half of the agentic recommendation
+                         engine: given live search hits + the document context,
+                         pick the SINGLE most trustworthy resource and explain
+                         why the others were discarded.
+
+The system prompts forbid markdown fences, preamble, and emojis, but models
+are unreliable, so we defensively extract and repair the JSON, retry once with
+a corrective nudge, and always fail gracefully (never an unhandled 500).
 """
 
 from __future__ import annotations
@@ -15,16 +22,26 @@ import re
 import httpx
 
 from app.config import get_settings
-from app.schemas import DiagramStep, TableData, TaskItem, TranslateResponse
+from app.schemas import (
+    DiagramStep,
+    SearchResult,
+    TableData,
+    TaskItem,
+    TranslateResponse,
+    VerifiedResource,
+)
 
-# The EXACT system prompt required by the spec. The model must return a
-# structured JSON object (markdown explanation + task list + table + diagram).
-SYSTEM_PROMPT = """You are a legal crisis translator. Your user is a stressed individual who needs to understand a complex administrative, legal, or financial document immediately. 
-Your ONLY job is to analyze the document text and output a highly structured JSON object. Do not include markdown code fences (like ```json), and do NOT use any emojis in your response. 
+# The system prompt for the multi-capability extraction step. The model must
+# return a single JSON object: classification + summary + structured extraction.
+SYSTEM_PROMPT = """You are a crisis-to-action document translator. Your user is a stressed individual who needs to understand a complex administrative, legal, medical, or financial document immediately.
+Your ONLY job is to analyze the document text and output a single, highly structured JSON object. Do not include markdown code fences (like ```json), and do NOT use any emojis anywhere in your response.
 
 Follow this exact JSON schema strictly:
 {
-  "plain_language_explanation_markdown": "A comprehensive, simple explanation of the document written in clear Markdown. Use bolding and headers where necessary. Strictly NO emojis.",
+  "urgency_tier": "Urgent Action Required",
+  "document_category": "eviction",
+  "plain_language_brief": "A 1-2 sentence summary, in plain language, of what this document is and the single most important thing the reader must know.",
+  "plain_language_explanation_markdown": "A comprehensive, simple explanation of the document written in clear Markdown. Use bolding and headers where helpful. Strictly NO emojis.",
   "task_list": [
     { "id": 1, "task": "Actionable task statement 1" },
     { "id": 2, "task": "Actionable task statement 2" }
@@ -32,18 +49,26 @@ Follow this exact JSON schema strictly:
   "table_data": {
     "headers": ["Column 1 Title", "Column 2 Title"],
     "rows": [
-      ["Row 1 Cell 1 Data", "Row 1 Cell 2 Data"],
-      ["Row 2 Cell 1 Data", "Row 2 Cell 2 Data"]
+      ["Row 1 Cell 1", "Row 1 Cell 2"],
+      ["Row 2 Cell 1", "Row 2 Cell 2"]
     ]
   },
   "diagram_steps": [
     { "step_number": 1, "title": "Brief Step Title", "description": "What to do in this phase" },
     { "step_number": 2, "title": "Next Step Title", "description": "What to do next" }
   ],
+  "detected_location": "City, State if any location is mentioned in the document, otherwise an empty string",
   "ai_confidence_score": "High"
 }
-The "ai_confidence_score" MUST be exactly one of "High", "Medium", or "Low". Set it to "High" only when the document text is clear and complete, "Medium" when some details are ambiguous, and "Low" when the input is sparse, garbled, or you are largely inferring.
-If the document does not contain data relevant for a table, leave the 'table_data' arrays empty. Always populate the markdown explanation, the task_list, the diagram_steps, and the ai_confidence_score."""
+
+FIELD RULES:
+- "urgency_tier" MUST be EXACTLY one of: "Urgent Action Required" (a hard deadline, legal action, or money is at immediate risk), "Time Sensitive" (action is needed soon but there is some buffer), or "Informational Only" (no action strictly required).
+- "document_category" MUST be a short lowercase machine label, ONE of: "eviction", "housing", "medical", "food_assistance", "utility", "legal", "benefits", or "general".
+- "plain_language_brief" is a SHORT summary (1-2 sentences). The "plain_language_explanation_markdown" is the LONGER, full explanation.
+- "detected_location" must contain only a place mentioned IN the document (city/state/ZIP). If none is present, use an empty string. Never invent one.
+- "ai_confidence_score" MUST be exactly one of "High", "Medium", or "Low": "High" when the text is clear and complete, "Medium" when some details are ambiguous, "Low" when the input is sparse, garbled, or largely inferred.
+- If the document has no tabular data (fees, amounts, eligibility brackets), leave the table_data arrays empty.
+Always populate urgency_tier, document_category, plain_language_brief, the markdown explanation, the task_list, the diagram_steps, the detected_location, and the ai_confidence_score."""
 
 RETRY_INSTRUCTION = (
     "Your previous reply was not valid JSON. Reply again with ONLY the raw JSON "
@@ -51,15 +76,24 @@ RETRY_INSTRUCTION = (
     "and no emojis."
 )
 
-# Optional per-module nudge layered on top of the canonical system prompt
-# (without altering it). Keeps document-type specialization while enforcing
-# the single structured schema above.
+# AI-evaluation step: choose the single best resource from live search hits.
+EVALUATOR_PROMPT = """You are a careful caseworker evaluating live web search results to recommend ONE trustworthy local support resource to a person in crisis.
+You are given the person's situation and a numbered list of real search results (title, url, description).
+Evaluate them and select the SINGLE most relevant and trustworthy resource. Prefer official government (.gov), recognized nonprofits (e.g. 211.org, Feeding America, Legal Aid), and avoid ads, blogs, or commercial lead-generation sites.
+Output ONLY this JSON object, no markdown fences, no emojis:
+{
+  "recommended_resource_name": "The organization or page name",
+  "recommended_resource_url": "The exact URL of the chosen result",
+  "ai_reasoning_for_recommendation": "ONE sentence explaining why you chose THIS result over the others."
+}
+The recommended_resource_url MUST be copied verbatim from one of the provided results. If none of the results are trustworthy or relevant, return empty strings for all three fields."""
+
+# Optional per-module nudge layered on top of the canonical system prompt.
 _DOC_TYPE_HINTS = {
     "medical_bill": (
         "Document category: itemized medical bill. Decode billing codes into "
         "plain language, populate table_data with the line items and charges, "
-        "and flag likely overcharges. Include a clear statement that this is "
-        "not medical or legal advice. Do not give medical or legal advice."
+        "and flag likely overcharges. This is not medical or legal advice."
     ),
     "eviction": (
         "Document category: eviction or lease-termination notice. Clarify "
@@ -78,18 +112,17 @@ def _doc_type_hint(doc_type: str) -> str | None:
 # Strip emojis and variation selectors so output stays clean and professional.
 _EMOJI_PATTERN = re.compile(
     "["
-    "\U0001f000-\U0001ffff"  # SMP: emoji, symbols, pictographs, flags, etc.
-    "\u2600-\u27bf"  # misc symbols + dingbats
-    "\u2b00-\u2bff"  # misc symbols and arrows (stars, etc.)
-    "\ufe00-\ufe0f"  # variation selectors
-    "\u200d"  # zero-width joiner
+    "\U0001f000-\U0001ffff"
+    "\u2600-\u27bf"
+    "\u2b00-\u2bff"
+    "\ufe00-\ufe0f"
+    "\u200d"
     "]",
 )
 
 
 def _strip_emoji(text: str) -> str:
     cleaned = _EMOJI_PATTERN.sub("", text)
-    # Collapse any double spaces left behind by removed glyphs.
     return re.sub(r"[ \t]{2,}", " ", cleaned).strip()
 
 
@@ -126,21 +159,16 @@ def _first_json_object(s: str) -> str | None:
             depth -= 1
             if depth == 0:
                 return s[start : i + 1]
-    return None  # unbalanced (likely truncated output)
+    return None
 
 
 def _try_parse(content: str) -> dict | None:
-    """Best-effort parse of a JSON object from raw model output.
-
-    Tries the whole string, a fenced block, and the first balanced object,
-    each with a trailing-comma repair pass. Returns None if nothing parses.
-    """
+    """Best-effort parse of a JSON object from raw model output."""
     if not content:
         return None
 
     text = content.strip()
 
-    # Strip ```json ... ``` fences if the model ignored instructions.
     fence = re.match(r"^```(?:json)?\s*(.*?)\s*```$", text, re.DOTALL)
     if fence:
         text = fence.group(1).strip()
@@ -151,7 +179,6 @@ def _try_parse(content: str) -> dict | None:
         candidates.append(block)
 
     for candidate in candidates:
-        # Try as-is, then with trailing commas removed (a common LLM slip).
         repaired = re.sub(r",(\s*[}\]])", r"\1", candidate)
         for variant in (candidate, repaired):
             try:
@@ -163,8 +190,34 @@ def _try_parse(content: str) -> dict | None:
     return None
 
 
+_VALID_URGENCY = {"Urgent Action Required", "Time Sensitive", "Informational Only"}
+_VALID_CATEGORY = {
+    "eviction",
+    "housing",
+    "medical",
+    "food_assistance",
+    "utility",
+    "legal",
+    "benefits",
+    "general",
+}
+_CONFIDENCE_PERCENT = {"High": 98, "Medium": 85, "Low": 62}
+
+
 def _normalize(data: dict, source_text: str) -> TranslateResponse:
     """Coerce model output into the structured response schema (emoji-free)."""
+
+    # Classification.
+    urgency = str(data.get("urgency_tier", "")).strip()
+    if urgency not in _VALID_URGENCY:
+        urgency = "Informational Only"
+
+    category = str(data.get("document_category", "")).strip().lower()
+    if category not in _VALID_CATEGORY:
+        category = "general"
+
+    # Summarization.
+    brief = _strip_emoji(str(data.get("plain_language_brief", "")).strip())
 
     # Markdown explanation (always present).
     markdown = _strip_emoji(str(data.get("plain_language_explanation_markdown", "")).strip())
@@ -197,7 +250,6 @@ def _normalize(data: dict, source_text: str) -> TranslateResponse:
         for raw_row in raw_table.get("rows") or []:
             if isinstance(raw_row, list):
                 rows.append([_strip_emoji(str(cell).strip()) for cell in raw_row])
-    # Drop a table that has no headers (nothing meaningful to render).
     if not headers:
         rows = []
 
@@ -218,19 +270,26 @@ def _normalize(data: dict, source_text: str) -> TranslateResponse:
 
     # Confidence score — coerce to one of High|Medium|Low (default Medium).
     raw_conf = str(data.get("ai_confidence_score", "")).strip().capitalize()
-    confidence = raw_conf if raw_conf in {"High", "Medium", "Low"} else "Medium"
+    confidence = raw_conf if raw_conf in _CONFIDENCE_PERCENT else "Medium"
+
+    detected_location = _strip_emoji(str(data.get("detected_location", "")).strip())
 
     return TranslateResponse(
+        urgency_tier=urgency,
+        document_category=category,
+        plain_language_brief=brief,
         plain_language_explanation_markdown=markdown,
         task_list=tasks,
         table_data=TableData(headers=headers, rows=rows),
         diagram_steps=steps,
         ai_confidence_score=confidence,
+        confidence_percent=_CONFIDENCE_PERCENT[confidence],
+        detected_location=detected_location,
         source_text=source_text[:12000],
     )
 
 
-async def _call_model(client: httpx.AsyncClient, messages: list[dict]) -> str:
+async def _call_model(client: httpx.AsyncClient, messages: list[dict], max_tokens: int = 2048) -> str:
     """POST a chat completion and return the assistant message content."""
     settings = get_settings()
     payload = {
@@ -238,8 +297,7 @@ async def _call_model(client: httpx.AsyncClient, messages: list[dict]) -> str:
         "messages": messages,
         "temperature": 0.2,
         "top_p": 0.7,
-        # Generous budget so the JSON object is never truncated mid-object.
-        "max_tokens": 2048,
+        "max_tokens": max_tokens,
         "stream": False,
     }
     headers = {
@@ -251,7 +309,7 @@ async def _call_model(client: httpx.AsyncClient, messages: list[dict]) -> str:
 
     try:
         resp = await client.post(url, json=payload, headers=headers)
-    except httpx.HTTPError as exc:  # network-level failure
+    except httpx.HTTPError as exc:
         raise NvidiaUpstreamError(f"Could not reach NVIDIA API: {exc}") from exc
 
     if resp.status_code >= 400:
@@ -273,19 +331,13 @@ async def translate_form(
     eli5: bool = False,
     language: str = "",
 ) -> TranslateResponse:
-    """Call the NVIDIA model and return a structured checklist.
+    """Call the NVIDIA model and return a structured, multi-capability result.
 
-    Accepts the user's typed `user_context` (what they said they need help
-    with) and/or the `document_text` extracted from an uploaded file (OCR or
-    PDF). Both are forwarded to the model, clearly delineated, so the
-    explanation reflects the user's situation as well as the document.
-
-    `doc_type` selects an optional domain hint layered on top of the canonical
-    system prompt. `eli5` appends an "explain like I'm 5" instruction;
-    `language` forces the JSON values to be translated into that language.
-    Retries once with a corrective instruction if the first reply is not
-    parseable JSON. Raises NvidiaUpstreamError (handled as HTTP 502) rather
-    than crashing if the model output cannot be parsed.
+    Classifies (urgency_tier, document_category), summarizes
+    (plain_language_brief), and extracts (markdown, tasks, table, diagram) the
+    user's typed `user_context` and/or the `document_text` extracted from an
+    uploaded file. Retries once with a corrective instruction if the first
+    reply is not parseable JSON.
     """
     settings = get_settings()
 
@@ -297,21 +349,13 @@ async def translate_form(
     context = (user_context or "").strip()
     document = (document_text or "").strip()
 
-    # Compose a single user message that clearly separates the user's own
-    # words from the (OCR'd) document text so the model can use both.
     sections: list[str] = []
     if context:
-        sections.append(
-            "USER CONTEXT (what the user said they need help with):\n" + context
-        )
+        sections.append("USER CONTEXT (what the user said they need help with):\n" + context)
     if document:
-        sections.append(
-            "DOCUMENT TEXT (extracted from the user's uploaded file):\n" + document
-        )
+        sections.append("DOCUMENT TEXT (extracted from the user's uploaded file):\n" + document)
     user_message = "\n\n".join(sections) if sections else document
 
-    # Provenance for the Source Transparency engine: prefer the document text,
-    # falling back to the user's typed words when no file was provided.
     source_text = document or context
 
     messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
@@ -324,9 +368,10 @@ async def translate_form(
                 "role": "system",
                 "content": (
                     "Explain this as if I am 5 years old. Use very simple words and "
-                    "short sentences in the plain_language_explanation_markdown and "
-                    "the task_list, while keeping all facts, dates, and amounts "
-                    "accurate. Still return the exact JSON schema."
+                    "short sentences in the plain_language_brief, the "
+                    "plain_language_explanation_markdown, and the task_list, while "
+                    "keeping all facts, dates, and amounts accurate. Still return the "
+                    "exact JSON schema."
                 ),
             }
         )
@@ -337,10 +382,11 @@ async def translate_form(
                 "role": "system",
                 "content": (
                     f"Output the JSON values strictly translated into {lang}. "
-                    "Translate every human-readable string value (explanation, tasks, "
-                    "table headers/cells, diagram titles/descriptions) into "
-                    f"{lang}. Keep the JSON keys and structure exactly as specified, "
-                    "and keep ai_confidence_score as one of High, Medium, or Low."
+                    "Translate every human-readable string value (brief, explanation, "
+                    "tasks, table headers/cells, diagram titles/descriptions) into "
+                    f"{lang}. Keep the JSON keys, urgency_tier, document_category, "
+                    "detected_location, and ai_confidence_score in English exactly as "
+                    "specified."
                 ),
             }
         )
@@ -351,7 +397,6 @@ async def translate_form(
         data = _try_parse(content)
 
         if data is None:
-            # One corrective retry — show the model its bad output and insist.
             retry_messages = messages + [
                 {"role": "assistant", "content": content[:2000]},
                 {"role": "user", "content": RETRY_INSTRUCTION},
@@ -360,8 +405,66 @@ async def translate_form(
             data = _try_parse(content)
 
     if data is None:
-        raise NvidiaUpstreamError(
-            "The AI returned malformed output. Please try again."
-        )
+        raise NvidiaUpstreamError("The AI returned malformed output. Please try again.")
 
     return _normalize(data, source_text)
+
+
+async def evaluate_resources(
+    results: list[SearchResult],
+    document_brief: str,
+    document_category: str,
+) -> VerifiedResource:
+    """AI-evaluation step: pick the single best resource from live search hits.
+
+    Best-effort: returns an empty VerifiedResource if the model is not
+    configured, the input is empty, or the output cannot be parsed — the
+    recommendation is an enhancement, never a hard dependency.
+    """
+    settings = get_settings()
+    if not settings.nvidia_api_key or not results:
+        return VerifiedResource()
+
+    numbered = "\n".join(
+        f"{i}. title: {r.title}\n   url: {r.url}\n   description: {r.description}"
+        for i, r in enumerate(results, start=1)
+    )
+    user_message = (
+        f"PERSON'S SITUATION (category: {document_category or 'general'}):\n"
+        f"{document_brief or 'A person needs local support for the situation above.'}\n\n"
+        f"SEARCH RESULTS:\n{numbered}"
+    )
+    messages = [
+        {"role": "system", "content": EVALUATOR_PROMPT},
+        {"role": "user", "content": user_message},
+    ]
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            content = await _call_model(client, messages, max_tokens=512)
+    except NvidiaUpstreamError:
+        return VerifiedResource()
+
+    data = _try_parse(content)
+    if not data:
+        return VerifiedResource()
+
+    name = _strip_emoji(str(data.get("recommended_resource_name", "")).strip())
+    url = str(data.get("recommended_resource_url", "")).strip()
+    reasoning = _strip_emoji(str(data.get("ai_reasoning_for_recommendation", "")).strip())
+
+    # Trust only a URL that actually appears in the provided results.
+    valid_urls = {r.url for r in results}
+    if url and url not in valid_urls:
+        # Some models normalize trailing slashes; try a loose match.
+        match = next((u for u in valid_urls if u.rstrip("/") == url.rstrip("/")), "")
+        url = match
+
+    if not url:
+        return VerifiedResource()
+
+    return VerifiedResource(
+        recommended_resource_name=name,
+        recommended_resource_url=url,
+        ai_reasoning_for_recommendation=reasoning,
+    )
