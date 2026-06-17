@@ -4,22 +4,30 @@ import { ListChecks } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
-import { useLocalStorage } from "@/lib/storage";
 import { stripEmoji } from "@/lib/text";
 import type { TaskItem } from "@/lib/types";
 
 /**
- * Interactive checklist. Checking items updates a progress bar; ticks persist
- * to localStorage (per module) so progress survives a refresh — and never
- * leaves the device.
+ * Interactive checklist (CONTROLLED).
+ *
+ * Checked state is owned by a parent (the TranslatorApp orchestrator) and
+ * persisted to localStorage there, so it is lifted high enough to survive
+ * switching between dashboard tabs without wiping the user's progress.
+ *
  * FAILSAFE: renders nothing when there are no tasks.
  */
-export function TaskList({ tasks, storageKey }: { tasks: TaskItem[]; storageKey: string }) {
-  const [checked, setChecked] = useLocalStorage<Record<string, boolean>>(
-    `clearaid.tasks.${storageKey}`,
-    {},
-  );
-
+export function TaskList({
+  tasks,
+  checked,
+  onToggle,
+  storageKey,
+}: {
+  tasks: TaskItem[];
+  checked: Record<string, boolean>;
+  onToggle: (id: string, value: boolean) => void;
+  /** Used only to namespace the checkbox element ids. */
+  storageKey: string;
+}) {
   if (!tasks || tasks.length === 0) return null;
 
   const doneCount = tasks.filter((t) => checked[String(t.id)]).length;
@@ -47,7 +55,7 @@ export function TaskList({ tasks, storageKey }: { tasks: TaskItem[]; storageKey:
               id={`task-${storageKey}-${key}`}
               label={stripEmoji(t.task)}
               checked={!!checked[key]}
-              onCheckedChange={(v) => setChecked({ ...checked, [key]: v })}
+              onCheckedChange={(v) => onToggle(key, v)}
             />
           );
         })}

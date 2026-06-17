@@ -48,7 +48,7 @@ There is no database service. The app persists nothing.
 ## 2. The End-to-End Data Pipeline
 
 ### Step 1 — Multimodal Intake
-The client (`components/translator/intake-workspace.tsx`) accepts pasted/typed
+The intake screen (`components/translator/intake-view.tsx`) accepts pasted/typed
 text, a **PDF** upload, an **image** upload (PNG/JPG/WEBP), or a **mobile camera
 capture**. An optional **location** field scopes the resource recommendation.
 The payload is packaged as `multipart/form-data` and POSTed to
@@ -138,22 +138,33 @@ stored in `localStorage` (device-only) and clearable with one tap.
 
 ## 4. Frontend Rendering Engine
 
-The validated JSON hydrates discrete, conditional modules.
+The UI is a **mobile-first PWA with two states**, orchestrated by
+`components/translator/translator-app.tsx`, which owns all shared,
+progress-bearing state (the result, ELI5/language controls, checklist ticks,
+and the Responsible-AI acknowledgement) so it survives tab switches.
 
-| Module | Component | Behavior |
-| ------ | --------- | -------- |
-| **Urgency banner** | `translator/translator-result.tsx` | Color-coded classification (`urgency_tier`) + `plain_language_brief`. |
-| **Markdown explanation** | `ui/markdown.tsx` | `react-markdown` + `remark-gfm`; raw HTML disabled; emojis stripped. |
-| **Stateful task list** | `translator/task-list.tsx` | Checkbox list bound to a progress bar; persisted per-module to `localStorage`. |
-| **Conditional data table** | `translator/data-table.tsx` | Renders only when `table_data.headers` is non-empty. |
-| **Process visualizer** | `translator/process-diagram.tsx` | Timeline built from `diagram_steps`. |
-| **Verified Local Support** | `translator/translator-result.tsx` | Agentic recommendation card with the AI's one-sentence rationale. |
+- **State 0 — Intake** (`translator/intake-view.tsx`): a full-viewport screen.
+  **Judge Demo Mode** sits at the top as a collapsible, horizontally-scrollable
+  carousel of one-tap loaders — **Load Eviction Crisis**, **Load Hospital
+  Discharge**, **Load Food Assistance** — each auto-populating a complex
+  synthetic document and immediately running the full pipeline (`lib/demo-docs.ts`).
+- **State 1 — Dashboard** (`translator/dashboard-view.tsx`): a `max-w-md`,
+  full-height app column with a compact header and a **floating glassmorphic
+  bottom navigation** (`translator/bottom-nav.tsx`, `backdrop-blur` + `bg-white/80`)
+  exposing four icon tabs.
 
-### Judge Demo Mode
-The landing page exposes a **Judge Demo Mode** banner with three one-tap
-loaders — **Load Eviction Crisis**, **Load Hospital Discharge**, and **Load Food
-Assistance** — that auto-populate a complex synthetic document and immediately
-run it through the full pipeline (`lib/demo-docs.ts`).
+The validated JSON hydrates discrete, conditional modules, distributed across
+the four tabs:
+
+| Tab | View | Modules |
+| --- | ---- | ------- |
+| **Summary** | `tabs/summary-tab.tsx` | ELI5/language controls, urgency banner (`urgency_tier` + `plain_language_brief`), Markdown explanation (`ui/markdown.tsx`), conditional breakdown table (`translator/data-table.tsx`). |
+| **Tasks** | `tabs/tasks-tab.tsx` | Process visualizer (`translator/process-diagram.tsx`), interactive checklist (`translator/task-list.tsx`, controlled), and the Source Transparency toggle. |
+| **Resources** | `tabs/resources-tab.tsx` | Agentic "Verified Local Support" card and the Responsible AI & Human-in-the-Loop block; the gated "Open verified resource" action. |
+| **Settings** | `tabs/settings-tab.tsx` | "Translate another document" (reset to State 0), "Erase my data" (localStorage clear), disclaimers. |
+
+State is lifted into the orchestrator and the checklist (`translator/task-list.tsx`)
+is a **controlled** component, so switching tabs never wipes progress.
 
 ---
 
