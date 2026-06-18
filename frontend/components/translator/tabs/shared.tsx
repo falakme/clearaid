@@ -11,17 +11,17 @@ const URGENCY_STYLE: Record<
   { wrap: string; icon: typeof AlertOctagon; label: string }
 > = {
   "Urgent Action Required": {
-    wrap: "border-red-300 bg-red-50 text-red-800",
+    wrap: "border-red-200 bg-red-50/50 text-red-800",
     icon: AlertOctagon,
     label: "Urgent action required",
   },
   "Time Sensitive": {
-    wrap: "border-amber-300 bg-amber-50 text-amber-900",
+    wrap: "border-amber-100 bg-amber-50/40 text-amber-900",
     icon: Clock,
     label: "Time sensitive",
   },
   "Informational Only": {
-    wrap: "border-primary/30 bg-primary/5 text-primary",
+    wrap: "border-primary/20 bg-primary/5 text-primary",
     icon: Info,
     label: "Informational only",
   },
@@ -31,12 +31,12 @@ export function UrgencyBanner({ tier, brief }: { tier: UrgencyTier; brief: strin
   const style = URGENCY_STYLE[tier] ?? URGENCY_STYLE["Informational Only"];
   const Icon = style.icon;
   return (
-    <div className={cn("flex items-start gap-3 rounded-md border-2 p-4", style.wrap)}>
-      <Icon className="mt-0.5 h-6 w-6 shrink-0" />
+    <div className={cn("flex items-start gap-3 rounded-xl border p-3", style.wrap)}>
+      <Icon className="mt-0.5 h-5 w-5 shrink-0" />
       <div>
-        <p className="text-xs font-bold uppercase tracking-wide opacity-80">AI classification</p>
-        <p className="text-lg font-extrabold leading-tight">{style.label}</p>
-        {brief && <p className="mt-1 text-base font-medium opacity-90">{brief}</p>}
+        <p className="text-[10px] font-semibold uppercase tracking-wide opacity-80">AI classification</p>
+        <p className="text-base font-bold leading-tight">{style.label}</p>
+        {brief && <p className="mt-1 text-sm font-medium opacity-90">{brief}</p>}
       </div>
     </div>
   );
@@ -60,17 +60,11 @@ export function UrgencyPill({ tier, className }: { tier: UrgencyTier; className?
   );
 }
 
-/** Green/Yellow/Red badge for the AI's self-reported extraction confidence. */
+/** Compact pill for the AI's self-reported extraction confidence. */
 export function ConfidenceBadge({ score }: { score: TranslateResult["ai_confidence_score"] }) {
-  const style =
-    score === "High"
-      ? "bg-emerald-100 text-emerald-700"
-      : score === "Low"
-        ? "bg-red-100 text-red-700"
-        : "bg-amber-100 text-amber-800";
   return (
     <span
-      className={"inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold " + style}
+      className="inline-flex items-center gap-1 rounded-full border border-emerald-100 bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700"
       title="How confident the AI is in the extracted details (including deadlines). Always verify against the original."
     >
       AI confidence: {score}

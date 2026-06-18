@@ -54,7 +54,7 @@ export function TasksTab({
 
         {!hasTasks && !hasSteps && (
           <Card>
-            <p className="text-base text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               This document doesn&apos;t call for specific action steps. Head to the
               Summary tab for the full explanation.
             </p>
@@ -65,7 +65,7 @@ export function TasksTab({
         <Card>
           <button
             onClick={() => setShowSource((s) => !s)}
-            className="flex min-h-tap w-full items-center justify-between rounded-md text-left text-base font-semibold text-muted-foreground hover:text-foreground"
+            className="flex min-h-tap w-full items-center justify-between rounded-md text-left text-sm font-semibold text-muted-foreground hover:text-foreground"
             aria-expanded={showSource}
           >
             <span className="flex items-center gap-2">
@@ -85,11 +85,11 @@ export function TasksTab({
                 transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
                 className="overflow-hidden"
               >
-                <p className="mb-2 mt-3 text-sm text-muted-foreground">
+                <p className="mb-2 mt-3 text-xs text-muted-foreground">
                   This is the exact text ClearAid read. Always check dates and dollar
                   amounts against it.
                 </p>
-                <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/60 p-4 text-sm text-muted-foreground">
+                <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/60 p-4 text-xs text-muted-foreground">
                   {sourceText}
                 </pre>
               </motion.div>
