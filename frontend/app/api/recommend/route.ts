@@ -8,13 +8,14 @@ import { NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const BACKEND = process.env.BACKEND_INTERNAL_URL ?? "http://backend:8000";
+const BACKEND = (process.env.SERVICE_URL_BACKEND || process.env.BACKEND_INTERNAL_URL || "http://backend:8000").replace(/\/$/, "");
 
 export async function POST(request: Request) {
   let body: unknown;
   try {
     body = await request.json();
-  } catch {
+  } catch (error) {
+    console.error("[JSON Parsing Error]:", error);
     return NextResponse.json({ detail: "Invalid JSON." }, { status: 400 });
   }
 
@@ -26,15 +27,8 @@ export async function POST(request: Request) {
     });
     const data = await res.json().catch(() => ({}));
     return NextResponse.json(data, { status: res.status });
-  } catch {
-    // Recommendations are best-effort: return empty fields, never a hard error.
-    return NextResponse.json(
-      {
-        recommended_resource_name: "",
-        recommended_resource_url: "",
-        ai_reasoning_for_recommendation: "",
-      },
-      { status: 200 },
-    );
+  } catch (error) {
+    console.error("[Backend Connection Error]:", error);
+    return NextResponse.json({ error: "Backend unreachable" }, { status: 502 });
   }
 }

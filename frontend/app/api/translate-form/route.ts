@@ -10,13 +10,14 @@ export const dynamic = "force-dynamic";
 // The NVIDIA call can take a while; don't cut it short.
 export const maxDuration = 120;
 
-const BACKEND = process.env.BACKEND_INTERNAL_URL ?? "http://backend:8000";
+const BACKEND = (process.env.SERVICE_URL_BACKEND || process.env.BACKEND_INTERNAL_URL || "http://backend:8000").replace(/\/$/, "");
 
 export async function POST(request: Request) {
   let form: FormData;
   try {
     form = await request.formData();
-  } catch {
+  } catch (error) {
+    console.error("[Form Parsing Error]:", error);
     return NextResponse.json({ detail: "Invalid form data." }, { status: 400 });
   }
 
@@ -29,7 +30,8 @@ export async function POST(request: Request) {
       detail: "The translator returned an unexpected response.",
     }));
     return NextResponse.json(data, { status: res.status });
-  } catch {
-    return NextResponse.json({ detail: "Backend unreachable" }, { status: 502 });
+  } catch (error) {
+    console.error("[Backend Connection Error]:", error);
+    return NextResponse.json({ error: "Backend unreachable" }, { status: 502 });
   }
 }

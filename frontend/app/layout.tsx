@@ -31,6 +31,9 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
     title: "ClearAid",
   },
+  other: {
+    "mobile-web-app-capable": "yes",
+  },
 };
 
 export const viewport: Viewport = {

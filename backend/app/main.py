@@ -6,6 +6,7 @@ plain-language workspace. No database, no persistence — documents live only
 in memory for the duration of a request.
 """
 
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -24,9 +25,15 @@ app = FastAPI(
     version=__version__,
 )
 
+cors_origins_env = os.getenv("CORS_ORIGINS")
+if cors_origins_env is not None:
+    origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
+else:
+    origins = settings.cors_origins_list
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins_list,
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

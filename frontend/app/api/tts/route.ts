@@ -11,13 +11,14 @@ import { NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const BACKEND = process.env.BACKEND_INTERNAL_URL ?? "http://backend:8000";
+const BACKEND = (process.env.SERVICE_URL_BACKEND || process.env.BACKEND_INTERNAL_URL || "http://backend:8000").replace(/\/$/, "");
 
 export async function POST(request: Request) {
   let body: { text?: string };
   try {
     body = await request.json();
-  } catch {
+  } catch (error) {
+    console.error("[JSON Parsing Error]:", error);
     return NextResponse.json({ detail: "Invalid request body." }, { status: 400 });
   }
 
@@ -43,7 +44,8 @@ export async function POST(request: Request) {
       status: 200,
       headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store" },
     });
-  } catch {
-    return NextResponse.json({ detail: "Backend unreachable" }, { status: 502 });
+  } catch (error) {
+    console.error("[Backend Connection Error]:", error);
+    return NextResponse.json({ error: "Backend unreachable" }, { status: 502 });
   }
 }
