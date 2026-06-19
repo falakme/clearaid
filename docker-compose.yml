@@ -40,6 +40,11 @@ services:
     environment:
       BACKEND_INTERNAL_URL: ${BACKEND_INTERNAL_URL:-http://backend:8000}
       NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-}
+      # Keep-alive timeout must exceed Traefik's default (90s) so Node.js
+      # doesn't close connections that Traefik is still holding open.
+      # Without this, force-refresh triggers a 504 because Traefik tries to
+      # reuse a connection that Node.js has already silently dropped.
+      KEEP_ALIVE_TIMEOUT: ${KEEP_ALIVE_TIMEOUT:-100000}
     depends_on:
       - backend
     expose:
