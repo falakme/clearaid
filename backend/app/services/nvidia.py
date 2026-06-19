@@ -37,6 +37,18 @@ from app.services.prompts import (
 MAX_DOC_CHARS = 20000
 MAX_CONTEXT_CHARS = 6000
 
+# Output-token budget for the extraction/translation call. gemma-3n-e4b-it on
+# the NVIDIA Build API caps generation at 4096 tokens, so we request the full
+# ceiling. This matters most for NON-ENGLISH output: scripts like Arabic,
+# Chinese, and Hindi (Devanagari) tokenize to ~1.5-2.5x more tokens than the
+# equivalent English text, so the translated JSON easily overran the old 2048
+# limit, getting truncated mid-object. A truncated reply fails to parse, the
+# retry truncates too, and the request surfaced to the user as a 502
+# "ClarityAI had trouble reading that." Requesting the max is a free ceiling —
+# the model stops as soon as the JSON is complete, so English stays just as
+# fast while longer non-Latin output now has room to finish.
+MAX_OUTPUT_TOKENS = 4096
+
 # Follow-up chat bounds.
 MAX_CHAT_CONTEXT_CHARS = 8000
 MAX_CHAT_HISTORY_TURNS = 10
@@ -171,8 +183,10 @@ async def translate_form(
     source_text = document or context
     messages = _build_messages(document, context, doc_type, eli5, language)
 
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        content = await _call_model(client, messages)
+    # Non-Latin output is slower to generate, so allow more wall-clock time
+    # before the request would otherwise time out into a 502.
+    async with httpx.AsyncClient(timeout=90.0) as client:
+        content = await _call_model(client, messages, max_tokens=MAX_OUTPUT_TOKENS)
         data = try_parse(content)
 
         if data is None:
@@ -180,7 +194,7 @@ async def translate_form(
                 {"role": "assistant", "content": content[:2000]},
                 {"role": "user", "content": RETRY_INSTRUCTION},
             ]
-            content = await _call_model(client, retry_messages)
+            content = await _call_model(client, retry_messages, max_tokens=MAX_OUTPUT_TOKENS)
             data = try_parse(content)
 
     if data is None:
