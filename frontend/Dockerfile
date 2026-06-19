@@ -34,4 +34,11 @@ USER nextjs
 EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
+
+# Independent liveness check: hit the app shell (a static route) so the
+# frontend reports healthy on its own, without depending on the backend being
+# up. Lets Coolify health-gate rolling deploys. busybox wget ships with alpine.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=25s --retries=3 \
+    CMD wget -q --spider http://localhost:3000/ || exit 1
+
 CMD ["node", "server.js"]
