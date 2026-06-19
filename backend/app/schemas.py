@@ -136,11 +136,12 @@ class HealthResponse(BaseModel):
 class TtsRequest(BaseModel):
     """Input for the Azure Cognitive Services text-to-speech proxy.
 
-    Read-aloud is English-only by product decision, so callers do not pass a
-    language; the backend always synthesizes with a neutral English voice.
+    `language` selects a matching neural voice + locale so non-Latin scripts
+    (Hindi, Arabic, Chinese, …) are pronounced correctly. Defaults to English.
     """
 
     text: str = Field(min_length=1, max_length=6000)
+    language: str = ""
 
 
 # --- Follow-up chat ---

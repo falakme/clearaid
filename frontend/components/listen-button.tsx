@@ -3,24 +3,27 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, Pause, Volume2 } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api";
+import { speechLocale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 /**
  * Reads text aloud. Prefers Microsoft Azure Cognitive Services neural TTS
- * (a premium, natural English voice) via the backend `/api/tts` proxy, and
- * gracefully falls back to the browser's built-in Speech Synthesis when Azure
- * is not configured (HTTP 503) or unreachable.
+ * (premium, natural voices) via the backend `/api/tts` proxy, and gracefully
+ * falls back to the browser's built-in Speech Synthesis when Azure is not
+ * configured (HTTP 503) or unreachable.
  *
- * Read-aloud is ENGLISH-ONLY by product decision: the audio always plays the
- * supplied text with an English voice.
+ * The voice MATCHES the chosen output language, so Hindi/Arabic/Chinese text is
+ * pronounced correctly rather than skipped by an English voice.
  */
 export function ListenButton({
   text,
+  language = "English",
   className,
   label = "Listen",
   stopLabel = "Stop",
 }: {
   text: string;
+  language?: string;
   className?: string;
   label?: string;
   stopLabel?: string;
@@ -63,13 +66,21 @@ export function ListenButton({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [text]);
 
-  /** Browser Speech Synthesis fallback (English). */
+  /** Browser Speech Synthesis fallback, voiced to match the language. */
   function speakWithWebSpeech(): boolean {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) return false;
     const synth = window.speechSynthesis;
     synth.cancel();
+    const locale = speechLocale(language);
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "en-US";
+    utterance.lang = locale;
+    // Prefer a voice that matches the locale (exact, then by base language).
+    const voices = synth.getVoices();
+    const base = locale.split("-")[0];
+    const match =
+      voices.find((v) => v.lang === locale) ||
+      voices.find((v) => v.lang.replace("_", "-").toLowerCase().startsWith(base));
+    if (match) utterance.voice = match;
     utterance.rate = 0.98;
     utterance.onend = () => setSpeaking(false);
     utterance.onerror = () => setSpeaking(false);
@@ -84,7 +95,7 @@ export function ListenButton({
       const res = await fetch(`${API_BASE_URL}/api/tts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, language }),
       });
 
       if (res.ok) {

@@ -138,7 +138,7 @@ export function DashboardView({
                 exit={{ opacity: 0, x: -16 }}
                 transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
               >
-                {activeTab === "summary" && <SummaryTab result={result} t={t} />}
+                {activeTab === "summary" && <SummaryTab result={result} t={t} language={language} />}
                 {activeTab === "tasks" && (
                   <TasksTab
                     result={result}

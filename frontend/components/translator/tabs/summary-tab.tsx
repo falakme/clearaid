@@ -18,7 +18,7 @@ import { ConfidenceBadge, UrgencyBanner } from "./shared";
  * The urgency banner, the plain-language explanation (with read-aloud), and the
  * optional breakdown table. The output language is chosen up top in the header.
  */
-export function SummaryTab({ result, t }: { result: TranslateResult; t: Translator }) {
+export function SummaryTab({ result, t, language }: { result: TranslateResult; t: Translator; language: string }) {
   const spoken = useMemo(
     () =>
       [result.plain_language_brief, markdownToPlainText(result.plain_language_explanation_markdown)]
@@ -64,7 +64,7 @@ export function SummaryTab({ result, t }: { result: TranslateResult; t: Translat
             </h2>
             <div className="flex items-center gap-2">
               <ConfidenceBadge score={result.ai_confidence_score} t={t} />
-              <ListenButton text={spoken} label={t("listen")} stopLabel={t("stop")} className="px-3 text-xs" />
+              <ListenButton text={spoken} language={language} label={t("listen")} stopLabel={t("stop")} className="px-3 text-xs" />
             </div>
           </div>
           <Markdown>{localizedMarkdown}</Markdown>

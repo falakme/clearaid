@@ -14,7 +14,7 @@ export const maxDuration = 60;
 const BACKEND = (process.env.BACKEND_INTERNAL_URL || "http://backend:8000").replace(/\/$/, "");
 
 export async function POST(request: Request) {
-  let body: { text?: string };
+  let body: { text?: string; language?: string };
   try {
     body = await request.json();
   } catch (error) {
@@ -23,6 +23,7 @@ export async function POST(request: Request) {
   }
 
   const text = (body.text ?? "").trim();
+  const language = (body.language ?? "").trim();
   if (!text) {
     return NextResponse.json({ detail: "No text to synthesize." }, { status: 400 });
   }
@@ -31,7 +32,7 @@ export async function POST(request: Request) {
     const res = await fetch(`${BACKEND}/api/tts`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: text.slice(0, 6000) }),
+      body: JSON.stringify({ text: text.slice(0, 6000), language }),
     });
 
     if (!res.ok) {
