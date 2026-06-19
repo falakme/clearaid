@@ -75,7 +75,7 @@ export function IntakeView({
       </header>
 
       {/* Judge Demo Mode — collapsible, swipeable carousel */}
-      <section className="mt-5 rounded-xl border-2 border-primary/40 bg-primary/5">
+      <section className="mt-5 rounded-md border-2 border-primary/40 bg-primary/5">
         <button
           type="button"
           onClick={() => setDemoOpen((o) => !o)}
