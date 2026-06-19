@@ -48,22 +48,18 @@ export function SettingsTab({ onReset, t }: { onReset: () => void; t: Translator
       </Item>
 
       <Item>
-        <div className="space-y-2 px-1 text-center text-sm text-muted-foreground">
-          <p className="flex items-center justify-center gap-1.5 font-semibold text-foreground">
-            <ShieldCheck className="h-4 w-4 text-primary" /> {t("explains_you_decide")}
+        <footer className="border-t border-border pt-6 text-sm text-muted-foreground">
+          <p className="flex items-center gap-1.5 font-semibold text-foreground">
+            <ShieldCheck className="h-4 w-4 shrink-0 text-primary" /> {t("explains_you_decide")}
           </p>
-          <p>{t("disclaimer_body")}</p>
-          <nav className="flex items-center justify-center gap-4 pt-1 text-xs">
-            <Link href="/privacy" className="font-semibold text-primary hover:underline">
-              {t("privacy_policy")}
-            </Link>
+          <p className="mt-2">{t("disclaimer_body")}</p>
+          <nav className="mt-3 flex flex-wrap items-center gap-4 text-xs">
+            <Link href="/privacy" className="hover:text-foreground">{t("privacy_policy")}</Link>
             <span aria-hidden>·</span>
-            <Link href="/terms" className="font-semibold text-primary hover:underline">
-              {t("terms_of_service")}
-            </Link>
+            <Link href="/terms" className="hover:text-foreground">{t("terms_of_service")}</Link>
           </nav>
-          <p className="pt-2">{t("hackathon_credit")}</p>
-        </div>
+          <p className="mt-3 text-xs">{t("hackathon_credit")}</p>
+        </footer>
       </Item>
     </Stagger>
   );
