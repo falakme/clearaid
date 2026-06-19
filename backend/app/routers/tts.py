@@ -29,9 +29,11 @@ async def tts(request: Request, payload: TtsRequest) -> Response:
         audio = await synthesize_speech(payload.text)
     except AzureTtsConfigError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
-    except AzureTtsUpstreamError:
-        # Details are kept in server logs; the client gets a generic message (S6).
-        raise HTTPException(status_code=502, detail="Text-to-speech is unavailable right now.")
+    except AzureTtsUpstreamError as exc:
+        # Surface the upstream detail in non-prod so it's visible in Coolify logs.
+        import logging
+        logging.getLogger(__name__).error("TTS upstream error: %s", exc)
+        raise HTTPException(status_code=502, detail=str(exc))
 
     return Response(
         content=audio,
