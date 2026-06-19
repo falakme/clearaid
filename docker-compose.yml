@@ -17,9 +17,7 @@ services:
       NVIDIA_API_KEY: ${NVIDIA_API_KEY}
       NVIDIA_BASE_URL: ${NVIDIA_BASE_URL:-https://integrate.api.nvidia.com/v1}
       NVIDIA_MODEL: ${NVIDIA_MODEL:-google/gemma-3n-e4b-it}
-      # Comma-separated list of allowed CORS origins for the browser app.
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
-      # Brave Search — powers the agentic "Verified Local Support" engine.
       BRAVE_API_KEY: ${BRAVE_API_KEY:-}
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-10}
     expose:
@@ -36,19 +34,20 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        # Baked into the browser bundle at build time. Empty = call the
-        # frontend's own origin (/api/*), which proxies to the backend over
-        # the internal network. Recommended for Coolify (no CORS / mixed
-        # content). Only set this to a full https URL if you want the browser
-        # to hit the backend directly.
         NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-}
     container_name: clarityai-frontend
     restart: unless-stopped
     environment:
-      # Internal URL the Next.js server uses to reach the backend container.
       BACKEND_INTERNAL_URL: ${BACKEND_INTERNAL_URL:-http://backend:8000}
       NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-}
     depends_on:
       - backend
     expose:
       - "3000"
+    networks:
+      - default   # stays on the compose project network to reach the backend
+      - coolify   # joins Coolify's proxy network so Traefik can route to it
+
+networks:
+  coolify:
+    external: true  # Coolify's pre-existing proxy network (confirmed name)
