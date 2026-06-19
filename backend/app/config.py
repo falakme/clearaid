@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     # Web Speech synthesis, so read-aloud always works.
     azure_tts_key: str = ""
     azure_tts_endpoint: str = (
-        "https://centralindia.api.cognitive.microsoft.com/cognitiveservices/v1"
+        "https://centralindia.tts.speech.microsoft.com/cognitiveservices/v1"
     )
     # A premium, natural-sounding neutral English voice. Read-aloud is English-only.
     azure_tts_voice: str = "en-US-JennyNeural"
