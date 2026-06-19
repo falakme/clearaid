@@ -8,8 +8,9 @@ back to the browser's built-in Web Speech synthesis; 502 on upstream failure.
 Like the rest of ClarityAI, this endpoint is stateless and persists nothing.
 """
 
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, HTTPException, Request, Response
 
+from app.ratelimit import limiter
 from app.schemas import TtsRequest
 from app.services.azure_tts import (
     AzureTtsConfigError,
@@ -21,14 +22,16 @@ router = APIRouter(tags=["tts"])
 
 
 @router.post("/api/tts")
-async def tts(payload: TtsRequest) -> Response:
+@limiter.limit("30/minute")
+async def tts(request: Request, payload: TtsRequest) -> Response:
     """Synthesize speech audio (MP3) from text using Azure neural TTS."""
     try:
         audio = await synthesize_speech(payload.text)
     except AzureTtsConfigError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
-    except AzureTtsUpstreamError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except AzureTtsUpstreamError:
+        # Details are kept in server logs; the client gets a generic message (S6).
+        raise HTTPException(status_code=502, detail="Text-to-speech is unavailable right now.")
 
     return Response(
         content=audio,

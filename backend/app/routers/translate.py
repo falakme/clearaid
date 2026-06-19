@@ -4,26 +4,31 @@ The work is split across TWO endpoints so neither request runs long enough to
 hit a reverse-proxy / gateway timeout (which surfaces in the browser as a
 502 Bad Gateway):
 
-  POST /api/translate-form  — extract text, redact PII, ONE NVIDIA call that
-                              classifies + summarizes + extracts. Fast.
+  POST /api/translate-form  — extract text, redact PII, geolocate (fast), and
+                              ONE NVIDIA call that classifies + summarizes +
+                              extracts. Kept fast and free of web retrieval.
   POST /api/recommend       — the agentic step: Brave retrieval + a SECOND
                               NVIDIA call that evaluates the hits and selects
                               one "Verified Local Support" resource. The client
                               fires this after the translation renders, so the
-                              card streams in without blocking the result.
+                              card streams in without blocking the result. This
+                              is the SINGLE place Brave is queried (no duplicate
+                              search on the fast path).
 
 Neither endpoint ever submits anything on the user's behalf.
 """
 
 from typing import Optional
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
-import httpx
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from starlette.concurrency import run_in_threadpool
 
 from app.config import get_settings
+from app.ratelimit import limiter
 from app.schemas import RecommendRequest, TranslateResponse, VerifiedResource
 from app.services import brave
 from app.services.extract import ExtractionError, extract_text
+from app.services.geolocation import resolve_location
 from app.services.pii import redact_pii
 from app.services.nvidia import (
     BlurDetectedError,
@@ -38,9 +43,44 @@ router = APIRouter(tags=["translate"])
 # Document types the model knows how to translate (optional domain hint).
 ALLOWED_DOC_TYPES = {"emergency", "general", "eviction", "housing", "school", "medical_bill"}
 
+# Bound the work a single request can trigger (memory + latency + cost).
+MAX_FILES = 5
+
+
+async def _extract_documents(files: list[UploadFile], max_upload_mb: int) -> str:
+    """Read, size-check, and OCR/parse up to MAX_FILES uploads.
+
+    OCR (pytesseract) and PDF parsing (pypdf) are synchronous and CPU-bound, so
+    they run in a worker thread to avoid blocking the async event loop (which
+    would otherwise serialize all concurrent requests).
+    """
+    document_text = ""
+    max_bytes = max_upload_mb * 1024 * 1024
+
+    for file in files[:MAX_FILES]:
+        data = await file.read()
+        if not data:
+            continue
+        if len(data) > max_bytes:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File too large. Max {max_upload_mb} MB.",
+            )
+        try:
+            extracted = await run_in_threadpool(
+                extract_text, file.filename, file.content_type, data
+            )
+        except ExtractionError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        document_text += f"\n--- {file.filename} ---\n{extracted}\n"
+
+    return document_text
+
 
 @router.post("/api/translate-form", response_model=TranslateResponse)
+@limiter.limit("20/minute")
 async def translate(
+    request: Request,
     text: Optional[str] = Form(default=None),
     doc_type: str = Form(default="general"),
     eli5: bool = Form(default=False),
@@ -60,25 +100,7 @@ async def translate(
         doc_type = "general"
 
     user_context = (text or "").strip()
-    document_text = ""
-
-    # Multi-Doc Context
-    if files:
-        for file in files:
-            data = await file.read()
-            if len(data) == 0:
-                continue
-            max_bytes = settings.max_upload_mb * 1024 * 1024
-            if len(data) > max_bytes:
-                raise HTTPException(
-                    status_code=413,
-                    detail=f"File too large. Max {settings.max_upload_mb} MB.",
-                )
-            try:
-                extracted = extract_text(file.filename, file.content_type, data)
-                document_text += f"\n--- {file.filename} ---\n{extracted}\n"
-            except ExtractionError as exc:
-                raise HTTPException(status_code=422, detail=str(exc)) from exc
+    document_text = await _extract_documents(files, settings.max_upload_mb) if files else ""
 
     if not user_context and not document_text:
         raise HTTPException(
@@ -86,42 +108,16 @@ async def translate(
             detail="Tell us what you need help with, or upload a document to translate.",
         )
 
-    # 1. IP Geolocation (Location-Aware Agentic Intake)
-    detected_location = ""
-    if client_ip and client_ip not in ("127.0.0.1", "::1"):
-        try:
-            async with httpx.AsyncClient(timeout=3.0) as client:
-                ip_resp = await client.get(f"http://ip-api.com/json/{client_ip}")
-                if ip_resp.status_code == 200:
-                    ip_data = ip_resp.json()
-                    if ip_data.get("status") == "success":
-                        city = ip_data.get("city", "")
-                        region = ip_data.get("regionName", "")
-                        country = ip_data.get("countryCode", "")
-                        parts = [p for p in (city, region, country) if p]
-                        detected_location = ", ".join(parts)
-        except Exception:
-            pass
-
     # PII REDACTION LAYER: strip SSNs, emails, and phone numbers before anything is sent
     # to the model. Runs on BOTH the typed context and the extracted document.
     user_context, count_user = redact_pii(user_context)
     document_text, count_doc = redact_pii(document_text)
     pii_redacted_count = count_user + count_doc
 
-    # 2. Autonomous Intent Research
-    # Pre-fetch Brave search results if a text prompt is provided.
-    if user_context:
-        try:
-            query = brave.build_recommendation_query(doc_type, detected_location)
-            hits = await brave.search(query, count=4)
-            if hits:
-                search_context = "\n\nLOCAL SEARCH RESULTS:\n" + "\n".join(
-                    f"- {h.title} ({h.url}): {h.description}" for h in hits
-                )
-                user_context += search_context
-        except Exception:
-            pass
+    # Location-aware intake (fast, best-effort). The detected location flows to
+    # the client and is later passed to /api/recommend to bias the Brave query —
+    # so Brave is queried exactly once per document, on the slow path.
+    detected_location = await resolve_location(client_ip)
 
     # AI step — classify + summarize + extract (single call, kept fast).
     try:
@@ -134,22 +130,26 @@ async def translate(
         )
     except NvidiaConfigError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
-    except NvidiaUpstreamError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
-    except BlurDetectedError as exc:
+    except NvidiaUpstreamError:
+        # Generic message to the client; details are logged server-side (S6).
+        raise HTTPException(
+            status_code=502,
+            detail="ClarityAI had trouble reading that. Please try again.",
+        )
+    except BlurDetectedError:
         raise HTTPException(status_code=422, detail="blur_detected")
 
     result.pii_redacted_count = pii_redacted_count
-    # If the AI did not confidently detect a location, fallback to IP location.
+    # If the AI did not confidently detect a location, fall back to IP location.
     if not result.detected_location and detected_location:
         result.detected_location = detected_location
-    
+
     return result
 
 
-
 @router.post("/api/recommend", response_model=VerifiedResource)
-async def recommend(payload: RecommendRequest) -> VerifiedResource:
+@limiter.limit("30/minute")
+async def recommend(request: Request, payload: RecommendRequest) -> VerifiedResource:
     """Agentic resource recommendation: Brave retrieval + AI evaluation.
 
     Best-effort by design — returns empty fields (rather than an error) when

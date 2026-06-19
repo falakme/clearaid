@@ -7,7 +7,6 @@ import {
   Loader2,
   Share2,
   ShieldCheck,
-  Sparkles,
 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -15,15 +14,18 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Item, Stagger } from "@/components/motion";
 import type { Translator } from "@/lib/i18n";
 import type { TranslateResult } from "@/lib/types";
+import { isSafeHttpUrl } from "@/lib/utils";
 import { buildShareText } from "./shared";
 
 /**
  * Tab 3 — Resources.
  * The agentic "Verified Local Support" card and the Responsible AI &
- * Human-in-the-Loop block sit side by side on desktop. The "Open verified
- * resource" and "Share plan" actions stay disabled until the user ticks the
- * acknowledgement checkbox. `acknowledged` is owned by the orchestrator so it
- * survives tab switches.
+ * Human-in-the-Loop block sit side by side on desktop. The card renders the
+ * SINGLE AI-evaluated resource (recommended_resource_*) selected by the
+ * /api/recommend step, including the model's one-line reasoning. The "Open
+ * verified resource" and "Share plan" actions stay disabled until the user
+ * ticks the acknowledgement checkbox. `acknowledged` is owned by the
+ * orchestrator so it survives tab switches.
  */
 export function ResourcesTab({
   result,
@@ -39,7 +41,12 @@ export function ResourcesTab({
   t: Translator;
 }) {
   const [shareMsg, setShareMsg] = useState("");
-  const hasResource = Boolean(result.local_support_resources && result.local_support_resources.length > 0);
+
+  // Only trust an http(s) URL the backend already validated against live hits.
+  const resourceUrl = (result.recommended_resource_url || "").trim();
+  const hasResource = isSafeHttpUrl(resourceUrl);
+  const resourceName = (result.recommended_resource_name || "").trim() || resourceUrl;
+  const reasoning = (result.ai_reasoning_for_recommendation || "").trim();
   const hasTasks = result.task_list.length > 0;
 
   async function sharePlan() {
@@ -79,13 +86,19 @@ export function ResourcesTab({
               <BadgeCheck className="h-4 w-4" /> {t("verified_support")}
             </h2>
             <div className="mt-2 space-y-2">
-              {result.local_support_resources?.map((url, i) => (
-                <p key={i} className="break-all text-sm font-medium text-foreground">
-                  <a href={url} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                    {url}
-                  </a>
+              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700/80">
+                {t("recommended_resource")}
+              </p>
+              <p className="break-words text-base font-bold text-foreground">
+                <a href={resourceUrl} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                  {resourceName}
+                </a>
+              </p>
+              {reasoning && (
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  <span className="font-semibold text-foreground">{t("why_this_one")}</span> {reasoning}
                 </p>
-              ))}
+              )}
             </div>
           </Card>
         ) : (
@@ -140,19 +153,14 @@ export function ResourcesTab({
 
             {hasResource &&
               (acknowledged ? (
-                <div className="flex flex-col gap-2">
-                  {result.local_support_resources?.map((url, i) => (
-                    <a
-                      key={i}
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={buttonVariants({ size: "sm", className: "w-full" })}
-                    >
-                      <ExternalLink className="h-4 w-4" /> {t("open_resource")} {i > 0 ? i + 1 : ""}
-                    </a>
-                  ))}
-                </div>
+                <a
+                  href={resourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={buttonVariants({ size: "sm", className: "w-full" })}
+                >
+                  <ExternalLink className="h-4 w-4" /> {t("open_resource")}
+                </a>
               ) : (
                 <Button size="sm" className="w-full" disabled>
                   <ExternalLink className="h-4 w-4" /> {t("open_resource")}

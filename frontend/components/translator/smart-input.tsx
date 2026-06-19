@@ -1,16 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, Keyboard, Mic, Sparkles, X } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { useAudioLevels } from "@/lib/use-audio-levels";
+import { useSpeechRecognition } from "@/lib/use-speech-recognition";
 import type { Translator } from "@/lib/i18n";
 
 type Mode = "choice" | "keyboard" | "voice";
-
-const BAR_COUNT = 28;
-const IDLE = new Array(BAR_COUNT).fill(0.08);
 
 /**
  * Gemini-style multimodal input. It occupies a single "spot" that morphs
@@ -221,7 +220,6 @@ function KeyboardPanel({
 function VoicePanel({
   t,
   speechLang,
-  rtl,
   existing,
   onKeyboard,
   onCommit,
@@ -235,137 +233,30 @@ function VoicePanel({
   onCommit: (spoken: string) => void;
   onCancel: () => void;
 }) {
-  const [transcript, setTranscript] = useState("");
-  const [interim, setInterim] = useState("");
-  const [levels, setLevels] = useState<number[]>(IDLE);
+  const { transcript, interim, value, stop } = useSpeechRecognition(speechLang);
+  const levels = useAudioLevels(true);
 
-  const recognitionRef = useRef<any>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const rafRef = useRef<number | null>(null);
-  const finalRef = useRef("");
-
-  const stopAll = useCallback(() => {
-    try {
-      recognitionRef.current?.stop();
-    } catch {
-      /* ignore */
-    }
-    recognitionRef.current = null;
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    rafRef.current = null;
-    streamRef.current?.getTracks().forEach((tr) => tr.stop());
-    streamRef.current = null;
-    audioCtxRef.current?.close().catch(() => {});
-    audioCtxRef.current = null;
-  }, []);
-
-  useEffect(() => {
-    finalRef.current = "";
-    setTranscript("");
-    setInterim("");
-
-    // --- Speech-to-text ---
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (SR) {
-      const rec = new SR();
-      rec.lang = speechLang;
-      rec.interimResults = true;
-      rec.continuous = true;
-      rec.onresult = (e: any) => {
-        let interimText = "";
-        for (let i = e.resultIndex; i < e.results.length; i++) {
-          const res = e.results[i];
-          if (res.isFinal) finalRef.current += res[0].transcript + " ";
-          else interimText += res[0].transcript;
-        }
-        setTranscript(finalRef.current.trim());
-        setInterim(interimText);
-      };
-      rec.onerror = () => {};
-      recognitionRef.current = rec;
-      try {
-        rec.start();
-      } catch {
-        /* already started */
-      }
-    }
-
-    // --- Audio visualizer (with animated fallback) ---
-    let cancelled = false;
-    const startFallback = () => {
-      let tick = 0;
-      const loop = () => {
-        tick += 0.16;
-        setLevels(
-          Array.from({ length: BAR_COUNT }, (_, i) =>
-            Math.min(1, 0.18 + 0.55 * Math.abs(Math.sin(tick + i * 0.45)) * (0.6 + Math.random() * 0.4)),
-          ),
-        );
-        rafRef.current = requestAnimationFrame(loop);
-      };
-      loop();
-    };
-
-    navigator.mediaDevices
-      ?.getUserMedia({ audio: true })
-      .then((stream) => {
-        if (cancelled) {
-          stream.getTracks().forEach((tr) => tr.stop());
-          return;
-        }
-        streamRef.current = stream;
-        const Ctx = window.AudioContext || (window as any).webkitAudioContext;
-        const ctx = new Ctx();
-        audioCtxRef.current = ctx;
-        const source = ctx.createMediaStreamSource(stream);
-        const analyser = ctx.createAnalyser();
-        analyser.fftSize = 128;
-        analyser.smoothingTimeConstant = 0.8;
-        source.connect(analyser);
-        const data = new Uint8Array(analyser.frequencyBinCount);
-        const loop = () => {
-          analyser.getByteFrequencyData(data);
-          const bars = Array.from({ length: BAR_COUNT }, (_, i) => {
-            const idx = Math.floor((i / BAR_COUNT) * (data.length * 0.7));
-            return Math.max(0.08, data[idx] / 255);
-          });
-          setLevels(bars);
-          rafRef.current = requestAnimationFrame(loop);
-        };
-        loop();
-      })
-      .catch(() => {
-        if (!cancelled) startFallback();
-      });
-
-    return () => {
-      cancelled = true;
-      stopAll();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Always tear down the speech engine if the panel unmounts unexpectedly.
+  useEffect(() => stop, [stop]);
 
   function commit() {
-    const spoken = `${finalRef.current} ${interim}`.replace(/\s+/g, " ").trim();
-    stopAll();
-    onCommit(spoken);
+    stop();
+    onCommit(value);
   }
 
   function backToKeyboard() {
-    const spoken = `${finalRef.current} ${interim}`.replace(/\s+/g, " ").trim();
-    stopAll();
-    onCommit(spoken); // keep whatever was captured, then show the textarea
+    stop();
+    onCommit(value); // keep whatever was captured, then show the textarea
     onKeyboard();
   }
 
   function cancel() {
-    stopAll();
+    stop();
     onCancel();
   }
 
   const energy = levels.reduce((a, b) => a + b, 0) / levels.length;
-  const shown = `${transcript} ${interim}`.trim();
+  const shown = value;
 
   return (
     <motion.div
