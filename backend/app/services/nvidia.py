@@ -293,6 +293,7 @@ async def chat(
     source_text: str = "",
     history: list[ChatMessage] | None = None,
     language: str = "",
+    detected_location: str = "",
 ) -> str:
     """Answer a follow-up question, grounded in the already-analyzed document.
 
@@ -319,14 +320,24 @@ async def chat(
 
     # gemma-3n-e4b-it allows AT MOST ONE system message and it must be the very
     # first message; every following message must alternate user/assistant.
-    # So fold the persona, the document context, and the (optional) language
-    # instruction into a SINGLE system message. Sending them as separate system
-    # messages made the upstream reject any request with a 4xx (a 502 to the
-    # client) — which broke non-English replies in particular.
+    # So fold the persona, the document context, the (optional) language
+    # instruction, and the (optional) location into a SINGLE system message.
     system_parts = [
         CHAT_SYSTEM_PROMPT,
         "DOCUMENT CONTEXT FOR THIS CONVERSATION:\n\n" + context,
     ]
+
+    loc = (detected_location or "").strip()
+    if loc:
+        system_parts.append(
+            f"USER LOCATION: {loc}. "
+            "When the user asks about local resources, services, offices, lawyers, doctors, "
+            "hotlines, or any location-specific help, tailor your answer to this location. "
+            "Name real, known organizations, agencies, or services that serve this area where "
+            "possible. If you are not confident about a specific resource for that location, "
+            "say so and suggest how the person can find one (e.g. local government website, "
+            "211, bar association directory)."
+        )
     lang = (language or "").strip()
     if lang and lang.lower() not in {"english", "en"}:
         system_parts.append(

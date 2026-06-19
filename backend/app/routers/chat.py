@@ -29,6 +29,7 @@ async def chat(request: Request, payload: ChatRequest) -> ChatResponse:
             source_text=payload.source_text,
             history=payload.history,
             language=payload.language,
+            detected_location=payload.detected_location,
         )
     except NvidiaConfigError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc

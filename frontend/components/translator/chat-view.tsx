@@ -71,6 +71,7 @@ export function ChatView({
         sourceText: result.source_text,
         history: prior,
         language,
+        detectedLocation: result.detected_location ?? "",
       });
       const finalMessages = [...withUser, { role: "assistant" as const, content: answer }];
       setMessages(finalMessages);

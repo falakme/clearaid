@@ -155,8 +155,9 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     """Input for the stateless follow-up chat.
 
-    The client sends the document context (brief + source text) and the full
-    message history on every turn — the backend keeps no conversation state.
+    The client sends the document context (brief + source text), the full
+    message history, and the detected user location on every turn — the backend
+    keeps no conversation state.
     """
 
     question: str = Field(min_length=1, max_length=4000)
@@ -167,6 +168,9 @@ class ChatRequest(BaseModel):
     # Prior turns (oldest first), excluding the new `question`.
     history: list[ChatMessage] = Field(default_factory=list)
     language: str = ""
+    # City/region detected from the user's IP — used to give location-specific
+    # resource suggestions in the chat (e.g. local bar associations, clinics).
+    detected_location: str = ""
 
 
 class ChatResponse(BaseModel):

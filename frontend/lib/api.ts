@@ -82,6 +82,7 @@ export interface ChatInput {
   sourceText?: string;
   history?: ChatMessage[];
   language?: string;
+  detectedLocation?: string;
 }
 
 /**
@@ -100,6 +101,7 @@ export async function chat(input: ChatInput): Promise<string> {
       source_text: input.sourceText ?? "",
       history: input.history ?? [],
       language: input.language ?? "",
+      detected_location: input.detectedLocation ?? "",
     }),
   });
   if (!res.ok) throw new ApiError(await parseError(res), res.status);
