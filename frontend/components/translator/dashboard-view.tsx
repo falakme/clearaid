@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Printer, RotateCcw } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 import { LanguageMenu } from "@/components/language-menu";
@@ -66,10 +66,15 @@ export function DashboardView({
 }) {
   const [activeTab, setActiveTab] = useState<TabKey>("summary");
   const t = createTranslator(language);
-  const hasResource = Boolean(result.local_support_resources && result.local_support_resources.length > 0);
+  const hasResource =
+    Boolean(result.recommended_resource_url) ||
+    (result.additional_resources?.length ?? 0) > 0 ||
+    (result.local_support_resources?.length ?? 0) > 0;
   const attention = { resources: hasResource && !acknowledged };
 
-  const print = () => window.print();
+  // The urgency pill describes the current document, so it only belongs on the
+  // document-specific tabs — not on History or Settings.
+  const showUrgency = activeTab === "summary" || activeTab === "tasks" || activeTab === "resources";
 
   return (
     <div className="print-hidden mx-auto flex h-[100dvh] w-full max-w-screen-xl">
@@ -79,10 +84,7 @@ export function DashboardView({
         <div className="mt-8 flex-1">
           <SideNav active={activeTab} onChange={setActiveTab} attention={attention} t={t} />
         </div>
-        <div className="space-y-2 border-t border-white/50 pt-4">
-          <Button variant="outline" size="sm" className="w-full" onClick={print}>
-            <Printer className="h-5 w-5" /> {t("print_plan")}
-          </Button>
+        <div className="border-t border-white/50 pt-4">
           <Button variant="ghost" size="sm" className="w-full" onClick={onReset}>
             <RotateCcw className="h-5 w-5" /> {t("new_document")}
           </Button>
@@ -97,18 +99,12 @@ export function DashboardView({
             <h1 className="hidden text-lg font-bold tracking-tight lg:block">
               {t(TAB_TITLE[activeTab])}
             </h1>
-            <UrgencyPill tier={result.urgency_tier} t={t} className="hidden sm:inline-flex lg:ml-1" />
+            {showUrgency && (
+              <UrgencyPill tier={result.urgency_tier} t={t} className="hidden sm:inline-flex lg:ml-1" />
+            )}
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <LanguageMenu value={language} onChange={onLanguageChange} busy={refreshing} />
-            <button
-              type="button"
-              onClick={print}
-              aria-label={t("print_plan")}
-              className="flex min-h-tap min-w-tap items-center justify-center rounded-md bg-card text-foreground shadow-clay-sm active:translate-y-0.5 lg:hidden"
-            >
-              <Printer className="h-5 w-5" />
-            </button>
           </div>
         </header>
 

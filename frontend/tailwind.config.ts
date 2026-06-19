@@ -50,24 +50,24 @@ const config: Config = {
         "5xl": ["3rem", { lineHeight: "1.1" }],
       },
       borderRadius: {
-        // Reduced one step from the original claymorphism values —
-        // still friendly and modern but less bubble-like.
-        xl: "1.75rem",
-        lg: "1.25rem",
-        md: "0.75rem",
-        sm: "0.375rem",
+        // Restrained, modern radii — friendly but not bubble-like.
+        xl: "1rem",
+        lg: "0.75rem",
+        md: "0.5rem",
+        sm: "0.3rem",
       },
       boxShadow: {
-        // Signature clay: soft outer drop + inner top highlight + inner bottom shade.
-        clay: "0 16px 32px -12px rgba(40,48,86,0.28), inset 0 8px 16px rgba(255,255,255,0.9), inset 0 -8px 14px rgba(40,48,86,0.10)",
-        "clay-lg": "0 26px 50px -14px rgba(40,48,86,0.34), inset 0 9px 18px rgba(255,255,255,0.92), inset 0 -9px 16px rgba(40,48,86,0.10)",
-        "clay-sm": "0 8px 18px -8px rgba(40,48,86,0.25), inset 0 4px 8px rgba(255,255,255,0.85), inset 0 -4px 8px rgba(40,48,86,0.08)",
-        // Colored buttons get a glossy tinted clay. Driven by a CSS variable
+        // Soft, subtle elevation — a light drop shadow plus a faint top
+        // highlight. Replaces the older heavy "puffy clay" insets.
+        clay: "0 6px 16px -8px rgba(40,48,86,0.16), inset 0 1px 0 rgba(255,255,255,0.55)",
+        "clay-lg": "0 12px 28px -10px rgba(40,48,86,0.20), inset 0 1px 0 rgba(255,255,255,0.55)",
+        "clay-sm": "0 3px 8px -4px rgba(40,48,86,0.13), inset 0 1px 0 rgba(255,255,255,0.45)",
+        // Colored buttons get a soft tinted shadow, driven by a CSS variable
         // so it re-tints (blue -> red) with the active theme.
         "clay-primary": "var(--shadow-clay-primary)",
-        "clay-warning": "0 16px 28px -10px rgba(245,158,11,0.50), inset 0 8px 14px rgba(255,255,255,0.55), inset 0 -8px 14px rgba(161,98,7,0.40)",
-        // Pressed-in surface for inputs / active state.
-        "clay-inset": "inset 0 6px 12px rgba(40,48,86,0.16), inset 0 -4px 8px rgba(255,255,255,0.75)",
+        "clay-warning": "0 8px 18px -8px rgba(245,158,11,0.38), inset 0 1px 0 rgba(255,255,255,0.4)",
+        // Gentle pressed-in surface for inputs / active state.
+        "clay-inset": "inset 0 2px 4px rgba(40,48,86,0.10)",
       },
       minHeight: {
         tap: "48px", // massive tap targets

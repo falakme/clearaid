@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Clock, FileText, Trash2 } from "lucide-react";
+import { FileText, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createTranslator } from "@/lib/i18n";
 import {
@@ -77,18 +77,13 @@ export function HistoryView({
 
   return (
     <div className="space-y-4">
-      {/* Header row */}
-      <div className="flex items-center justify-between">
-        <h2 className="flex items-center gap-2 text-sm font-bold text-foreground">
-          <Clock className="h-4 w-4 text-primary" />
-          {t("nav_history")}
-          {entries.length > 0 && (
-            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">
-              {entries.length}
-            </span>
-          )}
-        </h2>
-        {entries.length > 0 && (
+      {/* Compact actions row — the tab title already appears in the header,
+          so we don't repeat the word "History" here. */}
+      {entries.length > 0 && (
+        <div className="flex items-center justify-between">
+          <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">
+            {entries.length}
+          </span>
           <Button
             variant="ghost"
             size="sm"
@@ -98,8 +93,8 @@ export function HistoryView({
             <Trash2 className="h-4 w-4" />
             {confirmClear ? t("history_confirm_clear") : t("history_clear_all")}
           </Button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Empty state */}
       {entries.length === 0 && (
