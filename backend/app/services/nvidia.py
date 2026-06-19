@@ -106,7 +106,49 @@ async def _call_model(client: httpx.AsyncClient, messages: list[dict], max_token
 def _build_messages(
     document: str, context: str, doc_type: str, eli5: bool, language: str
 ) -> list[dict]:
-    """Assemble the system + hint + user messages for the extraction call."""
+    """Assemble the messages for the extraction call.
+
+    IMPORTANT: gemma-3n-e4b-it (Gemma family) uses a chat template that does
+    not natively support the `system` role. Serving stacks tolerate a SINGLE
+    leading system message by folding it into the first user turn, but a
+    SECOND system message breaks the required user/model alternation and the
+    upstream rejects the request (4xx) -> surfaces to the client as a 502.
+
+    Previously the doc-type hint, ELI5 instruction, and the
+    "translate into <language>" instruction were each appended as their own
+    system message. English with the default doc type produced exactly ONE
+    system message (worked), but ANY non-English request added a second one
+    (always failed). To stay robust we collapse every instruction into a
+    SINGLE system message and keep exactly one user turn.
+    """
+    instructions: list[str] = [SYSTEM_PROMPT]
+
+    hint = doc_type_hint(doc_type)
+    if hint:
+        instructions.append(hint)
+
+    if eli5:
+        instructions.append(
+            "Explain this as if I am 5 years old. Use very simple words and "
+            "short sentences in the plain_language_brief, the "
+            "plain_language_explanation_markdown, and the task_list, while "
+            "keeping all facts, dates, and amounts accurate. Still return the "
+            "exact JSON schema."
+        )
+
+    lang = (language or "").strip()
+    if lang and lang.lower() not in {"english", "en"}:
+        instructions.append(
+            f"Output the JSON values strictly translated into {lang}. "
+            "Translate every human-readable string value (brief, explanation, "
+            "tasks, table headers/cells, diagram titles/descriptions) into "
+            f"{lang}. Keep the JSON keys, urgency_tier, document_category, "
+            "detected_location, and ai_confidence_score in English exactly as "
+            "specified."
+        )
+
+    system_content = "\n\n".join(instructions)
+
     sections: list[str] = []
     if context:
         sections.append("USER CONTEXT (what the user said they need help with):\n" + context)
@@ -114,40 +156,10 @@ def _build_messages(
         sections.append("DOCUMENT TEXT (extracted from the user's uploaded file):\n" + document)
     user_message = "\n\n".join(sections) if sections else document
 
-    messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
-    hint = doc_type_hint(doc_type)
-    if hint:
-        messages.append({"role": "system", "content": hint})
-    if eli5:
-        messages.append(
-            {
-                "role": "system",
-                "content": (
-                    "Explain this as if I am 5 years old. Use very simple words and "
-                    "short sentences in the plain_language_brief, the "
-                    "plain_language_explanation_markdown, and the task_list, while "
-                    "keeping all facts, dates, and amounts accurate. Still return the "
-                    "exact JSON schema."
-                ),
-            }
-        )
-    lang = (language or "").strip()
-    if lang and lang.lower() not in {"english", "en"}:
-        messages.append(
-            {
-                "role": "system",
-                "content": (
-                    f"Output the JSON values strictly translated into {lang}. "
-                    "Translate every human-readable string value (brief, explanation, "
-                    "tasks, table headers/cells, diagram titles/descriptions) into "
-                    f"{lang}. Keep the JSON keys, urgency_tier, document_category, "
-                    "detected_location, and ai_confidence_score in English exactly as "
-                    "specified."
-                ),
-            }
-        )
-    messages.append({"role": "user", "content": user_message})
-    return messages
+    return [
+        {"role": "system", "content": system_content},
+        {"role": "user", "content": user_message},
+    ]
 
 
 async def translate_form(
@@ -305,19 +317,25 @@ async def chat(
     if len(context) > MAX_CHAT_CONTEXT_CHARS:
         context = context[:MAX_CHAT_CONTEXT_CHARS] + "\n\n[context truncated]"
 
-    messages: list[dict] = [
-        {"role": "system", "content": CHAT_SYSTEM_PROMPT},
-        {"role": "system", "content": "DOCUMENT CONTEXT FOR THIS CONVERSATION:\n\n" + context},
+    # gemma-3n-e4b-it allows AT MOST ONE system message and it must be the very
+    # first message; every following message must alternate user/assistant.
+    # So fold the persona, the document context, and the (optional) language
+    # instruction into a SINGLE system message. Sending them as separate system
+    # messages made the upstream reject any request with a 4xx (a 502 to the
+    # client) — which broke non-English replies in particular.
+    system_parts = [
+        CHAT_SYSTEM_PROMPT,
+        "DOCUMENT CONTEXT FOR THIS CONVERSATION:\n\n" + context,
     ]
-
     lang = (language or "").strip()
     if lang and lang.lower() not in {"english", "en"}:
-        messages.append(
-            {
-                "role": "system",
-                "content": f"Reply in {lang}. Keep proper nouns, amounts, and dates as written in the document.",
-            }
+        system_parts.append(
+            f"Reply in {lang}. Keep proper nouns, amounts, and dates as written in the document."
         )
+
+    messages: list[dict] = [
+        {"role": "system", "content": "\n\n".join(system_parts)},
+    ]
 
     # Replay the recent history (bounded to the last N turns).
     for turn in (history or [])[-MAX_CHAT_HISTORY_TURNS:]:
