@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     # NVIDIA Build API (cognitive engine).
     nvidia_api_key: str = ""
     nvidia_base_url: str = "https://integrate.api.nvidia.com/v1"
-    nvidia_model: str = "google/gemma-3n-e4b-it"
+    nvidia_model: str = "meta/llama-3.3-70b-instruct"
 
     # CORS — only needed when the browser calls the backend directly.
     cors_origins: str = "http://localhost:3000"

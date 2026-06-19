@@ -1,6 +1,6 @@
 """NVIDIA Build API integration for the Crisis-to-Action translator.
 
-Two distinct cognitive steps run against `google/gemma-3n-e4b-it`:
+Two distinct cognitive steps run against `meta/llama-3.3-70b-instruct`:
 
 1. translate_form()    — classify + summarize + extract a dense document into
                          a strict, multi-capability JSON object.
@@ -37,17 +37,16 @@ from app.services.prompts import (
 MAX_DOC_CHARS = 20000
 MAX_CONTEXT_CHARS = 6000
 
-# Output-token budget for the extraction/translation call. gemma-3n-e4b-it on
-# the NVIDIA Build API caps generation at 4096 tokens, so we request the full
-# ceiling. This matters most for NON-ENGLISH output: scripts like Arabic,
+# Output-token budget for the extraction/translation call. llama-3.3-70b on
+# the NVIDIA Build API supports up to 8192 output tokens, so we request the
+# full ceiling. This matters most for NON-ENGLISH output: scripts like Arabic,
 # Chinese, and Hindi (Devanagari) tokenize to ~1.5-2.5x more tokens than the
-# equivalent English text, so the translated JSON easily overran the old 2048
-# limit, getting truncated mid-object. A truncated reply fails to parse, the
-# retry truncates too, and the request surfaced to the user as a 502
-# "ClarityAI had trouble reading that." Requesting the max is a free ceiling —
-# the model stops as soon as the JSON is complete, so English stays just as
-# fast while longer non-Latin output now has room to finish.
-MAX_OUTPUT_TOKENS = 4096
+# equivalent English text, so the translated JSON easily overruns small limits,
+# getting truncated mid-object. A truncated reply fails to parse, the retry
+# truncates too, and the request surfaces to the user as a 502. Requesting
+# the max is a free ceiling — the model stops as soon as the JSON is complete,
+# so English stays just as fast while longer non-Latin output now has room.
+MAX_OUTPUT_TOKENS = 8192
 
 # Follow-up chat bounds.
 MAX_CHAT_CONTEXT_CHARS = 8000
@@ -108,18 +107,10 @@ def _build_messages(
 ) -> list[dict]:
     """Assemble the messages for the extraction call.
 
-    IMPORTANT: gemma-3n-e4b-it (Gemma family) uses a chat template that does
-    not natively support the `system` role. Serving stacks tolerate a SINGLE
-    leading system message by folding it into the first user turn, but a
-    SECOND system message breaks the required user/model alternation and the
-    upstream rejects the request (4xx) -> surfaces to the client as a 502.
-
-    Previously the doc-type hint, ELI5 instruction, and the
-    "translate into <language>" instruction were each appended as their own
-    system message. English with the default doc type produced exactly ONE
-    system message (worked), but ANY non-English request added a second one
-    (always failed). To stay robust we collapse every instruction into a
-    SINGLE system message and keep exactly one user turn.
+    All instructions (base prompt, doc-type hint, ELI5 flag, language) are
+    collapsed into a single system message so the model receives exactly one
+    system turn followed by one user turn. This is clean and universally
+    supported across NVIDIA-hosted models.
     """
     instructions: list[str] = [SYSTEM_PROMPT]
 
@@ -318,10 +309,9 @@ async def chat(
     if len(context) > MAX_CHAT_CONTEXT_CHARS:
         context = context[:MAX_CHAT_CONTEXT_CHARS] + "\n\n[context truncated]"
 
-    # gemma-3n-e4b-it allows AT MOST ONE system message and it must be the very
-    # first message; every following message must alternate user/assistant.
-    # So fold the persona, the document context, the (optional) language
-    # instruction, and the (optional) location into a SINGLE system message.
+    # Fold the persona, the document context, the (optional) language
+    # instruction, and the (optional) location into a single system message,
+    # then replay conversation history, then append the new user question.
     system_parts = [
         CHAT_SYSTEM_PROMPT,
         "DOCUMENT CONTEXT FOR THIS CONVERSATION:\n\n" + context,
