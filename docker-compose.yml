@@ -49,6 +49,22 @@ services:
       - backend
     expose:
       - "3000"
+    # Traefik (Coolify's proxy) only lives on the `coolify` network. Because
+    # this container is ALSO on the `default` network (to reach the backend by
+    # name), Docker hands Traefik two IPs for it and Traefik picks one
+    # non-deterministically / round-robin. Whenever it picks the `default`-net
+    # IP it can't reach the container, so the request hangs until the proxy's
+    # dial timeout and returns a 504 — which looks like "the homepage randomly
+    # doesn't load". Pinning the routing network removes the ambiguity.
+    labels:
+      - traefik.docker.network=coolify
+    healthcheck:
+      # Lets the orchestrator/proxy avoid routing to a not-yet-ready container.
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
     networks:
       - default   # stays on the compose project network to reach the backend
       - coolify   # joins Coolify's proxy network so Traefik can route to it
