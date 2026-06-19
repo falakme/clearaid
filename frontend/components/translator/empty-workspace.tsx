@@ -26,7 +26,7 @@ export function EmptyWorkspace({
   return (
     <main
       dir={rtl ? "rtl" : "ltr"}
-      className="mx-auto flex min-h-[100dvh] max-w-screen-lg flex-col px-5 pb-6 pt-[max(1.5rem,env(safe-area-inset-top))] lg:px-8 lg:py-8"
+      className="mx-auto flex min-h-[100dvh] max-w-screen-xl flex-col px-5 pb-6 pt-[max(1.5rem,env(safe-area-inset-top))] lg:px-8 lg:py-8"
     >
       <header className="flex items-center justify-between gap-3">
         <Brand href="/" />

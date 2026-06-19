@@ -80,7 +80,7 @@ export function IntakeView({
   return (
     <main
       dir={rtl ? "rtl" : "ltr"}
-      className="mx-auto flex min-h-[100dvh] max-w-screen-lg flex-col px-5 pb-6 pt-[max(1.5rem,env(safe-area-inset-top))] lg:px-8 lg:py-8"
+      className="mx-auto flex min-h-[100dvh] max-w-screen-xl flex-col px-5 pb-6 pt-[max(1.5rem,env(safe-area-inset-top))] lg:px-8 lg:py-8"
     >
       <header className="flex items-center justify-between gap-3">
         <Brand href="/" />
@@ -270,16 +270,16 @@ export function IntakeView({
         </AnimatePresence>
       </section>
 
-      <p className="mt-auto pt-8 text-center text-sm text-muted-foreground">
-        <span className="flex items-center justify-center gap-1.5">
-          <ShieldCheck className="h-4 w-4" /> {t("footer")}
-        </span>
-      </p>
-      <nav className="mt-3 flex items-center justify-center gap-4 text-xs text-muted-foreground">
-        <Link href="/privacy" className="hover:text-foreground">{t("privacy_policy")}</Link>
-        <span aria-hidden>·</span>
-        <Link href="/terms" className="hover:text-foreground">{t("terms_of_service")}</Link>
-      </nav>
+      <footer className="mt-auto border-t border-border pt-6">
+        <p className="flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
+          <ShieldCheck className="h-4 w-4 shrink-0" /> {t("footer")}
+        </p>
+        <nav className="mt-3 flex items-center justify-center gap-4 text-xs text-muted-foreground">
+          <Link href="/privacy" className="hover:text-foreground">{t("privacy_policy")}</Link>
+          <span aria-hidden>·</span>
+          <Link href="/terms" className="hover:text-foreground">{t("terms_of_service")}</Link>
+        </nav>
+      </footer>
     </main>
   );
 }

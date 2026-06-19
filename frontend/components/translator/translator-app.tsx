@@ -287,9 +287,11 @@ export function TranslatorApp({ docType: docTypeProp = "general", storageKey = "
             initial="hidden"
             animate="show"
             exit="exit"
-            className="mx-auto max-w-md px-4 py-8"
+            className="mx-auto max-w-screen-xl px-5 py-8 lg:px-8"
           >
-            <TranslatorSkeleton language={language} />
+            <div className="mx-auto max-w-md">
+              <TranslatorSkeleton language={language} />
+            </div>
           </motion.div>
         ) : showDashboard && result ? (
           <motion.div key="dashboard" variants={phaseFade} initial="hidden" animate="show" exit="exit">
