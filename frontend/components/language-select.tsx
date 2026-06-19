@@ -2,7 +2,7 @@
 
 import { Languages, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { LANGUAGES } from "@/lib/languages";
+import { LANGUAGES, LANGUAGE_NATIVE_NAMES } from "@/lib/languages";
 
 /**
  * Output-language selector. Lives "up top" in the header on both the intake
@@ -42,7 +42,7 @@ export function LanguageSelect({
       >
         {LANGUAGES.map((l) => (
           <option key={l} value={l}>
-            {l}
+            {LANGUAGE_NATIVE_NAMES[l]}
           </option>
         ))}
       </select>
