@@ -160,20 +160,24 @@ stored in `localStorage` (device-only) and clearable with one tap.
 
 ## 4. Frontend Rendering Engine
 
-The UI is a **mobile-first PWA with two states**, orchestrated by
-`components/translator/translator-app.tsx`, which owns all shared,
-progress-bearing state (the result, ELI5/language controls, checklist ticks,
-and the Responsible-AI acknowledgement) so it survives tab switches.
+The UI is a **mobile-first PWA with real routes**, orchestrated by
+`lib/translator-context.tsx` (`<TranslatorProvider>`, mounted in the root
+`app/layout.tsx`). It owns all shared, progress-bearing state (the result,
+ELI5/language controls, checklist ticks, and the Responsible-AI
+acknowledgement) so it survives client-side navigation between the intake
+screen and the dashboard routes.
 
-- **State 0 — Intake** (`translator/intake-view.tsx`): a full-viewport screen.
-  **Judge Demo Mode** sits at the top as a collapsible, horizontally-scrollable
-  carousel of one-tap loaders — **Load Eviction Crisis**, **Load Hospital
-  Discharge**, **Load Food Assistance** — each auto-populating a complex
-  synthetic document and immediately running the full pipeline (`lib/demo-docs.ts`).
-- **State 1 — Dashboard** (`translator/dashboard-view.tsx`): a `max-w-md`,
-  full-height app column with a compact header and a **floating glassmorphic
-  bottom navigation** (`translator/bottom-nav.tsx`, `backdrop-blur` + `bg-white/80`)
-  exposing four icon tabs.
+- **Intake** (`/` → `app/page.tsx` + `translator/intake-view.tsx`): a
+  full-viewport screen. **Judge Demo Mode** sits at the top as a collapsible,
+  horizontally-scrollable carousel of one-tap loaders — **Load Eviction
+  Crisis**, **Load Hospital Discharge**, **Load Food Assistance** — each
+  auto-populating a complex synthetic document and immediately running the full
+  pipeline (`lib/demo-docs.ts`). Submitting navigates to `/dash`.
+- **Dashboard** (`/dash/*` → `app/dash/layout.tsx`): a persistent shell with a
+  compact header, a desktop sidebar, and a **floating glassmorphic bottom
+  navigation** (`translator/bottom-nav.tsx`, `backdrop-blur` + `bg-white/80`).
+  Each section is its own route: `/dash` (Summary), `/dash/tasks`, `/dash/ask`
+  (chat), `/dash/resources`, `/dash/history`, and `/dash/settings`.
 
 The validated JSON hydrates discrete, conditional modules, distributed across
 the four tabs:

@@ -1,15 +1,63 @@
-import { TranslatorApp } from "@/components/translator/translator-app";
+"use client";
+
+import { IntakeView } from "@/components/translator/intake-view";
+import { TranslatorSkeleton } from "@/components/translator/translator-skeleton";
+import { useTranslator } from "@/lib/translator-context";
 
 /**
- * The single, frictionless app surface. No login, no onboarding, no location
- * prompt — visiting the site drops you straight into the translator.
+ * The intake surface (`/`). No login, no onboarding — visiting the site drops
+ * you straight into the translator. Submitting a document runs the translation
+ * and navigates to the routed dashboard (`/dash`).
  *
- * The whole experience is a two-state mobile-first PWA driven by
- * <TranslatorApp>:
- *   - State 0: the full-viewport intake screen (with Judge Demo Mode).
- *   - State 1: the tabbed dashboard (Summary / Tasks / Resources / Settings)
- *     with a floating glassmorphic bottom navigation.
+ * All shared state lives in <TranslatorProvider> (mounted in the root layout),
+ * so navigating to `/dash` and back never loses progress, and a returning user
+ * sees a "Resume" / "Open workspace" affordance for their last session.
  */
 export default function HomePage() {
-  return <TranslatorApp docType="general" storageKey="home" />;
+  const {
+    text,
+    setText,
+    files,
+    setFiles,
+    language,
+    handleLanguage,
+    canSubmit,
+    error,
+    phase,
+    runTranslate,
+    handleLoadDemo,
+    recentEntry,
+    handleLoadHistory,
+    result,
+    openDashboard,
+  } = useTranslator();
+
+  if (phase === "loading") {
+    return (
+      <div className="mx-auto max-w-screen-xl px-5 py-8 lg:px-8">
+        <div className="mx-auto max-w-md">
+          <TranslatorSkeleton language={language} />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <IntakeView
+      text={text}
+      onTextChange={setText}
+      files={files}
+      onFilesChange={setFiles}
+      language={language}
+      onLanguageChange={handleLanguage}
+      canSubmit={canSubmit}
+      error={error}
+      onSubmit={() => runTranslate()}
+      onLoadDemo={handleLoadDemo}
+      recentEntry={recentEntry}
+      onResume={handleLoadHistory}
+      hasSession={result !== null}
+      onOpenDashboard={openDashboard}
+    />
+  );
 }

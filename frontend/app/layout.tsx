@@ -5,6 +5,7 @@ import { ServiceWorkerRegister } from "@/components/service-worker";
 import { InstallPrompt } from "@/components/install-prompt";
 import { OfflineBadge } from "@/components/offline-badge";
 import { Providers } from "@/components/providers";
+import { TranslatorProvider } from "@/lib/translator-context";
 
 // Display headings — Montserrat (--font-display)
 const montserrat = Montserrat({
@@ -64,7 +65,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${montserrat.variable} ${firaSans.variable} ${firaCode.variable}`}>
       <body className="min-h-screen font-sans">
-        <Providers>{children}</Providers>
+        <Providers>
+          <TranslatorProvider>{children}</TranslatorProvider>
+        </Providers>
         <OfflineBadge />
         <ServiceWorkerRegister />
         <InstallPrompt />
