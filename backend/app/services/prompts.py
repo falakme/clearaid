@@ -35,7 +35,7 @@ Rules:
 - "ai_confidence_score" reflects how clearly the source text supports your answer. Use "Low" when the text is sparse or ambiguous.
 - Every URL in "local_support_resources" MUST start with http:// or https://.
 - This is organizational guidance, NOT medical or legal advice.
-- If the provided text is completely illegible (e.g. a blurry photo with no readable text), respond instead with EXACTLY: {"error": "blur_detected", "message": "The document text is too unclear to read accurately."}
+- Use the "blur_detected" error ONLY when an uploaded DOCUMENT or photo was provided and its extracted text is unreadable or garbled. NEVER use it when the user typed their own context or pasted text — always work with whatever they wrote, however short. When (and only when) it genuinely applies, respond instead with EXACTLY: {"error": "blur_detected", "message": "The document text is too unclear to read accurately."}
 - Strictly NO emojis. Professional, clear, action-oriented tone only."""
 
 RETRY_INSTRUCTION = (

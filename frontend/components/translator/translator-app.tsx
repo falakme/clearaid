@@ -127,7 +127,9 @@ export function TranslatorApp({ docType: docTypeProp = "general", storageKey = "
                 ? "ClarityAI had trouble reading that. Please try again."
                 : e.status === 422 || e.status === 413
                   ? e.message === "blur_detected"
-                    ? "This photo is a bit too blurry for us to read accurately. To ensure we give you the right guidance, please take another photo with good lighting."
+                    ? submitFiles.length > 0
+                      ? "This photo is a bit too blurry for us to read accurately. To ensure we give you the right guidance, please take another photo with good lighting."
+                      : "We couldn't quite make sense of that. Please add a little more detail about your situation."
                     : e.message
                   : `Translation failed (${e.status}). Please try again.`
             : "Something went wrong reaching the translator.";

@@ -101,6 +101,9 @@ async def translate(
 
     user_context = (text or "").strip()
     document_text = await _extract_documents(files, settings.max_upload_mb) if files else ""
+    # Did we actually OCR/parse an uploaded document? The "blurry photo" error
+    # path is only meaningful when there was a document to read.
+    has_document = bool(document_text.strip())
 
     if not user_context and not document_text:
         raise HTTPException(
@@ -137,7 +140,15 @@ async def translate(
             detail="ClarityAI had trouble reading that. Please try again.",
         )
     except BlurDetectedError:
-        raise HTTPException(status_code=422, detail="blur_detected")
+        # "blur_detected" triggers the "take another photo" message in the UI,
+        # so only emit it when a document/photo was actually uploaded. If the
+        # input was typed text, the model misfired — return a generic prompt.
+        if has_document:
+            raise HTTPException(status_code=422, detail="blur_detected")
+        raise HTTPException(
+            status_code=422,
+            detail="We couldn't quite make sense of that. Please add a little more detail about your situation.",
+        )
 
     result.pii_redacted_count = pii_redacted_count
     # If the AI did not confidently detect a location, fall back to IP location.
