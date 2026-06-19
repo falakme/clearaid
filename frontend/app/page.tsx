@@ -1,5 +1,7 @@
 "use client";
 
+import { Brand } from "@/components/brand";
+import { LanguageMenu } from "@/components/language-menu";
 import { IntakeView } from "@/components/translator/intake-view";
 import { TranslatorSkeleton } from "@/components/translator/translator-skeleton";
 import { useTranslator } from "@/lib/translator-context";
@@ -32,13 +34,22 @@ export default function HomePage() {
     openDashboard,
   } = useTranslator();
 
+  // Match the IntakeView's full-screen container exactly so the loading state
+  // fills the same space as every other screen — no more tiny narrow card.
   if (phase === "loading") {
     return (
-      <div className="mx-auto max-w-screen-xl px-5 py-8 lg:px-8">
-        <div className="mx-auto max-w-md">
+      <main className="mx-auto flex min-h-[100dvh] max-w-screen-xl flex-col px-5 pb-6 pt-[max(1.5rem,env(safe-area-inset-top))] lg:px-8 lg:py-8">
+        <header className="flex items-center justify-between gap-3">
+          <Brand href="/" />
+          <LanguageMenu value={language} onChange={handleLanguage} />
+        </header>
+
+        {/* Same two-column grid as IntakeView — skeleton sits in the form column */}
+        <div className="mt-6 flex-1 lg:grid lg:grid-cols-2 lg:items-start lg:gap-12">
+          <div className="hidden lg:block" />
           <TranslatorSkeleton language={language} />
         </div>
-      </div>
+      </main>
     );
   }
 
