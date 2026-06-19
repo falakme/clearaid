@@ -76,6 +76,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   // The urgency pill describes the current document, so it only belongs on the
   // document-specific tabs — not on History or Settings.
+  const isChat = activeTab === "chat";
   const showUrgency =
     activeTab === "summary" ||
     activeTab === "tasks" ||
@@ -127,8 +128,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           </header>
 
-          <main className="scroll-clay flex-1 overflow-y-auto px-4 pb-32 pt-1 lg:px-8 lg:pb-10">
-            <div className="mx-auto w-full max-w-3xl">{children}</div>
+          {/* On the chat route the ChatView owns its own scroll so the input
+              stays pinned to the bottom. For all other routes, main scrolls. */}
+          <main className={isChat
+            ? "flex flex-1 flex-col overflow-hidden px-4 pt-1 lg:px-8"
+            : "scroll-clay flex-1 overflow-y-auto px-4 pb-32 pt-1 lg:px-8 lg:pb-10"
+          }>
+            <div className={isChat
+              ? "mx-auto flex w-full max-w-3xl flex-1 flex-col min-h-0"
+              : "mx-auto w-full max-w-3xl"
+            }>
+              {children}
+            </div>
           </main>
 
           <BottomNav attention={attention} t={t} />
