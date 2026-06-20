@@ -20,7 +20,7 @@ export default function NotFound() {
 
       {/* Content */}
       <div className="mt-16 w-full max-w-3xl">
-        <h1 className="font-display text-4xl font-extrabold tracking-tight">{t("not_found_title")}</h1>
+        <h1 className="font-display text-4xl font-extrabold">{t("not_found_title")}</h1>
         <p className="mt-3 text-xl text-muted-foreground">{t("not_found_body")}</p>
         <Link href="/" className={buttonVariants({ className: "mt-8" })}>
           {t("back_home")}

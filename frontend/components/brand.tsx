@@ -11,7 +11,7 @@ export function Brand({ className, href = "/" }: { className?: string; href?: st
         height={44}
         className="h-11 w-11 shrink-0 rounded-xl shadow-clay-primary"
       />
-      <span className="font-display text-2xl font-extrabold tracking-tight text-foreground">
+      <span className="font-display text-2xl font-extrabold text-foreground">
         Clarity<span className="text-primary">AI</span>
       </span>
     </Link>

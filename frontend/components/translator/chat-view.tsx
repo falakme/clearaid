@@ -133,7 +133,7 @@ export function ChatView({
         <div className="space-y-3 pb-4">
           {isEmpty && !loading && (
             <div className="rounded-lg border border-dashed border-border bg-card/40 p-4">
-              <p className="mb-3 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <p className="mb-3 flex items-center gap-1.5 text-xs font-semibold uppercase text-muted-foreground">
                 <Sparkles className="h-3.5 w-3.5" /> {t("chat_try_asking")}
               </p>
               <div className="flex flex-wrap gap-2">

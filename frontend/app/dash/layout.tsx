@@ -107,7 +107,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <header className="flex w-full items-center justify-between gap-2 px-4 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] lg:px-8 lg:py-4">
             <div className="flex min-w-0 items-center gap-3">
               <Brand href="/" className="lg:hidden" />
-              <h1 className="hidden font-display text-lg font-bold tracking-tight lg:block">
+              <h1 className="hidden font-display text-lg font-bold lg:block">
                 {t(TAB_TITLE[activeTab])}
               </h1>
               {showUrgency && (

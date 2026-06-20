@@ -59,7 +59,7 @@ export function SummaryTab({ result, t, language }: { result: TranslateResult; t
       <Item>
         <Card>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary">
+            <h2 className="flex items-center gap-2 text-xs font-semibold uppercase text-primary">
               <BookOpenText className="h-4 w-4" /> {t("what_this_means")}
             </h2>
             <div className="flex items-center gap-2">
