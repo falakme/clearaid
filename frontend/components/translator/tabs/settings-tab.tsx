@@ -18,7 +18,7 @@ export function SettingsTab({ onReset, t }: { onReset: () => void; t: Translator
     <Stagger className="space-y-5">
       <Item>
         <Card>
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-primary">
+          <h2 className="text-xs font-semibold uppercase text-primary">
             {t("this_document")}
           </h2>
           <p className="mb-4 mt-1 text-sm text-muted-foreground">{t("this_document_hint")}</p>
@@ -35,7 +35,7 @@ export function SettingsTab({ onReset, t }: { onReset: () => void; t: Translator
 
       <Item>
         <Card>
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-primary">
+          <h2 className="text-xs font-semibold uppercase text-primary">
             {t("your_privacy")}
           </h2>
           <p className="mb-4 mt-1 text-sm text-muted-foreground">{t("your_privacy_hint")}</p>

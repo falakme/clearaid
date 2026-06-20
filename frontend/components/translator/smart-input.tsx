@@ -126,7 +126,7 @@ function ChoicePanel({
       exit={{ opacity: 0, y: -8 }}
       transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
     >
-      <p className="mb-3 text-center text-sm font-bold uppercase tracking-wide text-muted-foreground">
+      <p className="mb-3 text-center text-sm font-bold uppercase text-muted-foreground">
         {t("input_choose")}
       </p>
       <div className="grid grid-cols-2 gap-3 sm:gap-4">

@@ -43,7 +43,7 @@ export function UrgencyBanner({
     <div className={cn("flex items-start gap-3 rounded-xl border p-3", style.wrap)}>
       <Icon className="mt-0.5 h-5 w-5 shrink-0" />
       <div>
-        <p className="text-[10px] font-semibold uppercase tracking-wide opacity-80">
+        <p className="text-[10px] font-semibold uppercase opacity-80">
           {t("ai_classification")}
         </p>
         <p className="text-base font-bold leading-tight">{t(style.labelKey)}</p>

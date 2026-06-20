@@ -172,7 +172,7 @@ export function TaskList({
   return (
     <Card>
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary">
+        <h2 className="flex items-center gap-2 text-xs font-semibold uppercase text-primary">
           <ListChecks className="h-4 w-4" /> {t("action_checklist")}
         </h2>
         <span className="text-xs font-semibold text-muted-foreground">

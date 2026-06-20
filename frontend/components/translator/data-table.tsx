@@ -23,7 +23,7 @@ export function DataTable({ data, t }: { data: TableData; t: Translator }) {
 
   return (
     <Card>
-      <h2 className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary">
+      <h2 className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase text-primary">
         <Table2 className="h-4 w-4" /> {t("breakdown")}
       </h2>
       <Table>

@@ -67,7 +67,7 @@ export function ResourcesTab({
       <Item>
         {recommendationLoading && !hasResource ? (
           <Card className="border border-emerald-200 bg-emerald-50/40">
-            <h2 className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-emerald-700">
+            <h2 className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase text-emerald-700">
               <BadgeCheck className="h-4 w-4" /> {t("verified_support")}
             </h2>
             <p className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -78,10 +78,10 @@ export function ResourcesTab({
         ) : hasResource ? (
           <Card className="border border-emerald-200 bg-emerald-50/40">
             <div className="flex items-start justify-between gap-2">
-              <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-emerald-700">
+              <h2 className="flex items-center gap-2 text-xs font-semibold uppercase text-emerald-700">
                 <BadgeCheck className="h-4 w-4" /> {t("verified_support")}
               </h2>
-              <span className="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700">
+              <span className="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-700">
                 {t("best_match")}
               </span>
             </div>
@@ -108,7 +108,7 @@ export function ResourcesTab({
           </Card>
         ) : !recommendationLoading ? (
           <Card>
-            <h2 className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-emerald-700">
+            <h2 className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase text-emerald-700">
               <BadgeCheck className="h-4 w-4" /> {t("verified_support")}
             </h2>
             <p className="text-sm text-muted-foreground">{t("no_resource")}</p>
@@ -120,7 +120,7 @@ export function ResourcesTab({
       {extras.length > 0 && (
         <Item>
           <div className="space-y-2">
-            <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase text-muted-foreground">
               {t("more_resources")}
             </h3>
             <div className="space-y-2">

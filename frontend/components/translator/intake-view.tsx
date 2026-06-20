@@ -109,7 +109,7 @@ export function IntakeView({
           className="mt-4 flex w-full items-center justify-between gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-left transition-colors hover:bg-primary/10"
         >
           <div className="min-w-0 flex-1">
-            <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-primary">
+            <p className="mb-0.5 text-xs font-semibold uppercase text-primary">
               {t("resume_session")}
             </p>
             <p className="truncate text-sm font-medium text-foreground">
@@ -137,7 +137,7 @@ export function IntakeView({
         {/* Pitch */}
         <div className="lg:pt-6">
           <p className="font-display text-base font-semibold text-primary">{t("tagline")}</p>
-          <h1 className="font-display mt-2 text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl">
+          <h1 className="font-display mt-2 text-3xl font-extrabold leading-tight sm:text-4xl">
             {t("headline")}
           </h1>
           <p className="mt-3 text-lg text-muted-foreground">{t("subhead")}</p>

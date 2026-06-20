@@ -24,7 +24,7 @@ export function TableRow({ className, ...props }: React.HTMLAttributes<HTMLTable
 export function TableHead({ className, ...props }: React.ThHTMLAttributes<HTMLTableCellElement>) {
   return (
     <th
-      className={cn("px-4 py-3 text-sm font-bold uppercase tracking-wide text-primary", className)}
+      className={cn("px-4 py-3 text-sm font-bold uppercase text-primary", className)}
       {...props}
     />
   );

@@ -17,7 +17,7 @@ export function ProcessDiagram({ steps, t }: { steps: DiagramStep[]; t: Translat
 
   return (
     <Card>
-      <h2 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary">
+      <h2 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase text-primary">
         <Route className="h-4 w-4" /> {t("your_path")}
       </h2>
 

@@ -32,7 +32,7 @@ export function LegalPage({
 
       {/* Prose column — capped for readability like the dashboard content area */}
       <article className="mt-8 w-full max-w-3xl">
-        <h1 className="font-display text-3xl font-extrabold tracking-tight">{title}</h1>
+        <h1 className="font-display text-3xl font-extrabold">{title}</h1>
         <p className="mt-2 text-sm text-muted-foreground">Last updated: {updated}</p>
         <div className="legal-prose mt-6 space-y-5 text-[15px] leading-relaxed text-foreground/90">
           {children}
@@ -61,7 +61,7 @@ export function LegalPage({
 export function Section({ heading, children }: { heading: string; children: React.ReactNode }) {
   return (
     <section className="space-y-2">
-      <h2 className="font-display text-lg font-bold tracking-tight text-foreground">{heading}</h2>
+      <h2 className="font-display text-lg font-bold text-foreground">{heading}</h2>
       {children}
     </section>
   );

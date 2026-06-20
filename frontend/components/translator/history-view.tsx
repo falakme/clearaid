@@ -123,14 +123,14 @@ export function HistoryView({
                   {/* Badges row */}
                   <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
                     <span
-                      className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                      className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${
                         CATEGORY_COLOR[cat] ?? CATEGORY_COLOR.general
                       }`}
                     >
                       {t(CATEGORY_KEY[cat] ?? "cat_general")}
                     </span>
                     {isUrgent && (
-                      <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-700">
+                      <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-red-700">
                         {t("history_urgent")}
                       </span>
                     )}
