@@ -11,7 +11,7 @@ import {
 import { useRouter } from "next/navigation";
 import { ThemeMode } from "@/components/theme";
 import { translateForm, recommend, ApiError } from "@/lib/api";
-import { useLocalStorage } from "@/lib/storage";
+import { useLocalStorage, useSessionStorage } from "@/lib/storage";
 import {
   addToHistory,
   clearCurrentSession,
@@ -105,7 +105,7 @@ export function TranslatorProvider({ children }: { children: React.ReactNode }) 
   const router = useRouter();
 
   const [files, setFiles] = useState<File[]>([]);
-  const [text, setText] = useState("");
+  const [text, setText, clearText] = useSessionStorage<string>("clarityai.input.text", "");
   const [docType, setDocType] = useState<DocType>("general");
 
   const [phase, setPhase] = useState<Phase>("idle");
@@ -316,7 +316,7 @@ export function TranslatorProvider({ children }: { children: React.ReactNode }) 
       setDocType(doc.docType);
       runTranslate({ text: doc.text, files: [], docType: doc.docType });
     },
-    [runTranslate],
+    [runTranslate, setText],
   );
 
   const handleLoadHistory = useCallback(
@@ -346,14 +346,14 @@ export function TranslatorProvider({ children }: { children: React.ReactNode }) 
     setResult(null);
     setError("");
     setFiles([]);
-    setText("");
+    clearText();
     setAcknowledged(false);
     setRecLoading(false);
     setRefreshing(false);
     setRecentEntry(getHistory()[0] ?? null);
     setPhase("idle");
     router.push("/");
-  }, [router]);
+  }, [router, clearText]);
 
   const goHome = useCallback(() => {
     router.push("/");

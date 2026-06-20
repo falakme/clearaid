@@ -9,6 +9,49 @@ import { useCallback, useEffect, useState } from "react";
  */
 
 /**
+ * Generic sessionStorage-backed state hook. Values persist for the tab lifetime
+ * (survives mobile file-picker round-trips that kill JS context) but do not
+ * carry across browser sessions.
+ */
+export function useSessionStorage<T>(key: string, initial: T) {
+  const [value, setValue] = useState<T>(initial);
+
+  useEffect(() => {
+    try {
+      const raw = window.sessionStorage.getItem(key);
+      if (raw !== null) setValue(JSON.parse(raw) as T);
+    } catch {
+      /* ignore */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  const update = useCallback(
+    (next: T) => {
+      setValue(next);
+      try {
+        window.sessionStorage.setItem(key, JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+    },
+    [key],
+  );
+
+  const clear = useCallback(() => {
+    setValue(initial);
+    try {
+      window.sessionStorage.removeItem(key);
+    } catch {
+      /* ignore */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  return [value, update, clear] as const;
+}
+
+/**
  * Generic localStorage-backed state hook (used for checklist progress so a
  * user's checkbox ticks survive a refresh — never leaves the device).
  */
