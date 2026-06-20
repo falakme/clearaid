@@ -136,8 +136,8 @@ export function IntakeView({
       <div className="mt-6 lg:grid lg:grid-cols-2 lg:items-start lg:gap-12">
         {/* Pitch */}
         <div className="lg:pt-6">
-          <p className="text-base font-semibold text-primary">{t("tagline")}</p>
-          <h1 className="mt-2 text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl">
+          <p className="font-display text-base font-semibold text-primary">{t("tagline")}</p>
+          <h1 className="font-display mt-2 text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl">
             {t("headline")}
           </h1>
           <p className="mt-3 text-lg text-muted-foreground">{t("subhead")}</p>

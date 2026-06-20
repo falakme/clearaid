@@ -124,7 +124,7 @@ export function FileIntake({ files, onFilesChange, t }: Props) {
         <span className="flex h-14 w-14 items-center justify-center rounded-md bg-primary/10 text-primary shadow-clay-sm">
           <UploadCloud className="h-7 w-7" />
         </span>
-        <p className="mt-4 text-lg font-bold">{t("upload_title")}</p>
+        <p className="mt-4 font-display text-lg font-bold">{t("upload_title")}</p>
         <p className="mt-1 text-base text-muted-foreground">{t("upload_hint")}</p>
       </div>
 

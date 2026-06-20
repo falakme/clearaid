@@ -139,7 +139,7 @@ function ChoicePanel({
           <span className="flex h-14 w-14 items-center justify-center rounded-md bg-primary/10 text-primary shadow-clay-sm transition-transform group-hover:scale-105">
             <Keyboard className="h-7 w-7" />
           </span>
-          <span className="text-lg font-extrabold text-foreground">{t("type_it")}</span>
+          <span className="font-display text-lg font-extrabold text-foreground">{t("type_it")}</span>
           <span className="text-sm leading-snug text-muted-foreground">{t("type_hint")}</span>
         </button>
 
@@ -160,7 +160,7 @@ function ChoicePanel({
           <span className="flex h-14 w-14 items-center justify-center rounded-md bg-white/20 text-white shadow-clay-sm backdrop-blur-sm transition-transform group-hover:scale-105">
             <Mic className="h-7 w-7" />
           </span>
-          <span className="text-lg font-extrabold">{t("speak_it")}</span>
+          <span className="font-display text-lg font-extrabold">{t("speak_it")}</span>
           <span className="text-sm leading-snug text-white/85">{t("speak_hint")}</span>
         </button>
       </div>

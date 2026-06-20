@@ -58,7 +58,7 @@ export function EmptyState({ t, onCreate }: { t: Translator; onCreate: () => voi
       <span className="mt-6 flex h-12 w-12 items-center justify-center rounded-md bg-primary/10 text-primary shadow-clay-sm">
         <FilePlus2 className="h-6 w-6" />
       </span>
-      <h2 className="mt-3 text-lg font-bold tracking-tight">{t("no_chats_title")}</h2>
+      <h2 className="font-display mt-3 text-lg font-bold tracking-tight">{t("no_chats_title")}</h2>
       <p className="mt-1 text-sm text-muted-foreground">{t("no_chats_body")}</p>
 
       <Button className="mt-5 w-full" onClick={onCreate}>
