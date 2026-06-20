@@ -92,7 +92,9 @@ export function IntakeView({
               onClick={onOpenDashboard}
               className="shadow-clay-sm"
             >
-              <LayoutDashboard className="h-4 w-4" /> {t("open_workspace")}
+              <LayoutDashboard className="h-4 w-4" />
+              {/* Hide label on small screens so it doesn't crowd the brand */}
+              <span className="hidden sm:inline">{t("open_workspace")}</span>
             </Button>
           )}
           <LanguageMenu value={language} onChange={onLanguageChange} />
