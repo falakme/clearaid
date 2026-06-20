@@ -27,9 +27,10 @@ import type { HistoryEntry, TranslateResult } from "@/lib/types";
 import type { DemoDoc } from "@/lib/demo-docs";
 import { createTranslator, getStoredLanguage } from "@/lib/i18n";
 import { persistLanguage } from "@/lib/use-language";
+import { prepareFiles } from "@/lib/pdf-to-images";
 
 /** Async status of the translation request (independent of which route shows). */
-type Phase = "idle" | "loading";
+type Phase = "idle" | "converting" | "loading";
 type DocType = "emergency" | "general";
 
 interface RunTranslateOpts {
@@ -52,6 +53,8 @@ interface TranslatorContextValue {
 
   // ── Request / session status ──────────────────────────────────────────────
   phase: Phase;
+  /** While phase === "converting", the name of the PDF being rendered. */
+  convertingFile: string;
   /** True once the initial localStorage restore has run (client-only). */
   hydrated: boolean;
   result: TranslateResult | null;
@@ -111,6 +114,8 @@ export function TranslatorProvider({ children }: { children: React.ReactNode }) 
   const [error, setError] = useState("");
   const [recLoading, setRecLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  // File name of the PDF currently being converted to images (shown in UI).
+  const [convertingFile, setConvertingFile] = useState("");
   const runIdRef = useRef(0);
 
   // ID of the current history entry so we can update it when recommendation arrives.
@@ -175,10 +180,31 @@ export function TranslatorProvider({ children }: { children: React.ReactNode }) 
         setRecLoading(false);
       }
 
+      // ── Scanned-PDF detection ────────────────────────────────────────────
+      // Before hitting the API, check every PDF in the file list for selectable
+      // text. If a PDF has none (it's a scanned image), render its pages to
+      // JPEGs on-device so they go through the backend's OCR path instead of
+      // pypdf (which would return an empty string and error out).
+      // Refresh calls (language change) skip this — files haven't changed.
+      let processedFiles = submitFiles;
+      if (
+        !isRefresh &&
+        submitFiles.some(
+          (f) => f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf"),
+        )
+      ) {
+        setPhase("converting");
+        setConvertingFile("");
+        processedFiles = await prepareFiles(submitFiles, (name) => setConvertingFile(name));
+        if (runId !== runIdRef.current) return;
+        setPhase("loading");
+      }
+      // ────────────────────────────────────────────────────────────────────
+
       try {
         const res = await translateForm({
           text: submitText,
-          files: submitFiles,
+          files: processedFiles,
           docType: opts?.docType ?? docType,
           language: opts?.language ?? language,
         });
@@ -352,6 +378,7 @@ export function TranslatorProvider({ children }: { children: React.ReactNode }) 
     setDocType,
     canSubmit,
     phase,
+    convertingFile,
     hydrated,
     result,
     error,

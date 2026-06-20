@@ -26,6 +26,7 @@ export default function HomePage() {
     canSubmit,
     error,
     phase,
+    convertingFile,
     runTranslate,
     handleLoadDemo,
     recentEntry,
@@ -36,7 +37,7 @@ export default function HomePage() {
 
   // Match the IntakeView's full-screen container exactly so the loading state
   // fills the same space as every other screen — no more tiny narrow card.
-  if (phase === "loading") {
+  if (phase === "converting" || phase === "loading") {
     return (
       <main className="mx-auto flex min-h-[100dvh] max-w-screen-xl flex-col px-5 pb-6 pt-[max(1.5rem,env(safe-area-inset-top))] lg:px-8 lg:py-8">
         <header className="flex items-center justify-between gap-3">
@@ -47,7 +48,11 @@ export default function HomePage() {
         {/* Same two-column grid as IntakeView — skeleton sits in the form column */}
         <div className="mt-6 flex-1 lg:grid lg:grid-cols-2 lg:items-start lg:gap-12">
           <div className="hidden lg:block" />
-          <TranslatorSkeleton language={language} />
+          <TranslatorSkeleton
+            language={language}
+            converting={phase === "converting"}
+            convertingFile={convertingFile}
+          />
         </div>
       </main>
     );
