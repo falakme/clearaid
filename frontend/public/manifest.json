@@ -1,7 +1,7 @@
 {
-  "name": "ClarityAI — Understand any official letter",
+  "name": "ClarityAI – Any document, in plain language",
   "short_name": "ClarityAI",
-  "description": "Turn confusing letters, bills, and forms into a clear summary, a step-by-step plan, and trusted local help. Free, private, no sign-in.",
+  "description": "Turn any confusing legal, medical, or official document into a plain-language summary, a step-by-step action plan, and verified local support. Free, private, no sign-in.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -10,10 +10,10 @@
   "theme_color": "#2563EB",
   "categories": ["utilities", "government", "productivity"],
   "icons": [
-    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "/icons/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
-    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
-    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+    { "src": "/icons/icon-192.png",     "sizes": "192x192", "type": "image/png", "purpose": "any"       },
+    { "src": "/icons/icon-512.png",     "sizes": "512x512", "type": "image/png", "purpose": "any"       },
+    { "src": "/icons/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable"  },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"  },
+    { "src": "/icons/icon.svg",         "sizes": "any",     "type": "image/svg+xml", "purpose": "any"   }
   ]
 }
